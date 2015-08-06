@@ -179,6 +179,8 @@ TypePointer Type::fromMapping(ElementaryTypeName& _keyType, TypeName& _valueType
 		BOOST_THROW_EXCEPTION(_valueType.createTypeError("Invalid type name."));
 	// Convert value type to storage reference.
 	valueType = ReferenceType::copyForLocationIfReference(DataLocation::Storage, valueType);
+	// Convert key type to memory.
+	keyType = ReferenceType::copyForLocationIfReference(DataLocation::Memory, keyType);
 	return make_shared<MappingType>(keyType, valueType);
 }
 
@@ -210,6 +212,8 @@ TypePointer Type::forLiteral(Literal const& _literal)
 	case Token::FalseLiteral:
 		return make_shared<BoolType>();
 	case Token::Number:
+		if (!IntegerConstantType::isValidLiteral(_literal))
+			return TypePointer();
 		return make_shared<IntegerConstantType>(_literal);
 	case Token::StringLiteral:
 		return make_shared<StringLiteralType>(_literal);
@@ -320,6 +324,19 @@ const MemberList IntegerType::AddressMemberList({
 	{"callcode", make_shared<FunctionType>(strings(), strings{"bool"}, FunctionType::Location::BareCallCode, true)},
 	{"send", make_shared<FunctionType>(strings{"uint"}, strings{"bool"}, FunctionType::Location::Send)}
 });
+
+bool IntegerConstantType::isValidLiteral(const Literal& _literal)
+{
+	try
+	{
+		bigint x(_literal.getValue());
+	}
+	catch (...)
+	{
+		return false;
+	}
+	return true;
+}
 
 IntegerConstantType::IntegerConstantType(Literal const& _literal)
 {
@@ -772,6 +789,21 @@ bool ArrayType::isImplicitlyConvertibleTo(const Type& _convertTo) const
 	}
 }
 
+bool ArrayType::isExplicitlyConvertibleTo(const Type& _convertTo) const
+{
+	if (isImplicitlyConvertibleTo(_convertTo))
+		return true;
+	// allow conversion bytes <-> string
+	if (_convertTo.getCategory() != getCategory())
+		return false;
+	auto& convertTo = dynamic_cast<ArrayType const&>(_convertTo);
+	if (convertTo.location() != location())
+		return false;
+	if (!isByteArray() || !convertTo.isByteArray())
+		return false;
+	return true;
+}
+
 bool ArrayType::operator==(Type const& _other) const
 {
 	if (_other.getCategory() != getCategory())
@@ -823,11 +855,9 @@ unsigned ArrayType::getSizeOnStack() const
 	if (m_location == DataLocation::CallData)
 		// offset [length] (stack top)
 		return 1 + (isDynamicallySized() ? 1 : 0);
-	else if (m_location == DataLocation::Storage)
-		// storage_key storage_offset
-		return 2;
 	else
-		// offset
+		// storage slot or memory offset
+		// byte offset inside storage value is omitted
 		return 1;
 }
 
@@ -1027,22 +1057,6 @@ u256 StructType::getStorageSize() const
 	return max<u256>(1, getMembers().getStorageSize());
 }
 
-bool StructType::canLiveOutsideStorage() const
-{
-	for (auto const& member: getMembers())
-		if (!member.type->canLiveOutsideStorage())
-			return false;
-	return true;
-}
-
-unsigned StructType::getSizeOnStack() const
-{
-	if (location() == DataLocation::Storage)
-		return 2; // slot and offset
-	else
-		return 1;
-}
-
 string StructType::toString(bool _short) const
 {
 	string ret = "struct " + m_struct.getName();
@@ -1059,9 +1073,13 @@ MemberList const& StructType::getMembers() const
 		MemberList::MemberMap members;
 		for (ASTPointer<VariableDeclaration> const& variable: m_struct.getMembers())
 		{
+			TypePointer type = variable->getType();
+			// Skip all mapping members if we are not in storage.
+			if (location() != DataLocation::Storage && !type->canLiveOutsideStorage())
+				continue;
 			members.push_back(MemberList::Member(
 				variable->getName(),
-				copyForLocationIfReference(variable->getType()),
+				copyForLocationIfReference(type),
 				variable.get())
 			);
 		}
@@ -1072,8 +1090,7 @@ MemberList const& StructType::getMembers() const
 
 TypePointer StructType::copyForLocation(DataLocation _location, bool _isPointer) const
 {
-	auto copy = make_shared<StructType>(m_struct);
-	copy->m_location = _location;
+	auto copy = make_shared<StructType>(m_struct, _location);
 	copy->m_isPointer = _isPointer;
 	return copy;
 }
@@ -1115,6 +1132,15 @@ u256 StructType::memoryOffsetOfMember(string const& _name) const
 			offset += member.type->memoryHeadSize();
 	solAssert(false, "Member not found in struct.");
 	return 0;
+}
+
+set<string> StructType::membersMissingInMemory() const
+{
+	set<string> missing;
+	for (ASTPointer<VariableDeclaration> const& variable: m_struct.getMembers())
+		if (!variable->getType()->canLiveOutsideStorage())
+			missing.insert(variable->getName());
+	return missing;
 }
 
 TypePointer EnumType::unaryOperatorResult(Token::Value _operator) const

@@ -2110,6 +2110,62 @@ BOOST_AUTO_TEST_CASE(literal_strings)
 	BOOST_CHECK_NO_THROW(parseTextAndResolveNames(text));
 }
 
+BOOST_AUTO_TEST_CASE(invalid_integer_literal_fraction)
+{
+	char const* text = R"(
+		contract Foo {
+			function f() {
+				var x = 1.20;
+			}
+		}
+	)";
+	BOOST_CHECK_THROW(parseTextAndResolveNames(text), TypeError);
+}
+
+BOOST_AUTO_TEST_CASE(invalid_integer_literal_exp)
+{
+	char const* text = R"(
+		contract Foo {
+			function f() {
+				var x = 1e2;
+			}
+		}
+	)";
+	BOOST_CHECK_THROW(parseTextAndResolveNames(text), TypeError);
+}
+
+BOOST_AUTO_TEST_CASE(memory_structs_with_mappings)
+{
+	char const* text = R"(
+		contract Test {
+			struct S { uint8 a; mapping(uint => uint) b; uint8 c; }
+			S s;
+			function f() {
+				S memory x;
+				x.b[1];
+			}
+		}
+	)";
+	BOOST_CHECK_THROW(parseTextAndResolveNames(text), TypeError);
+}
+
+BOOST_AUTO_TEST_CASE(string_bytes_conversion)
+{
+	char const* text = R"(
+		contract Test {
+			string s;
+			bytes b;
+			function h(string _s) external { bytes(_s).length; }
+			function i(string _s) internal { bytes(_s).length; }
+			function j() internal { bytes(s).length; }
+			function k(bytes _b) external { string(_b); }
+			function l(bytes _b) internal { string(_b); }
+			function m() internal { string(b); }
+		}
+	)";
+	BOOST_CHECK_NO_THROW(parseTextAndResolveNames(text));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 }

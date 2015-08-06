@@ -33,13 +33,12 @@ static_assert(dev::Secret::size == 32, "Secret key must be 32 bytes.");
 static_assert(dev::Public::size == 64, "Public key must be 64 bytes.");
 static_assert(dev::Signature::size == 65, "Signature must be 65 bytes.");
 
-bytes Secp256k1PP::eciesKDF(Secret _z, bytes _s1, unsigned kdByteLen)
+bytes Secp256k1PP::eciesKDF(Secret const& _z, bytes _s1, unsigned kdByteLen)
 {
-	// interop w/go ecies implementation
-	
-	// for sha3, blocksize is 136 bytes
-	// for sha256, blocksize is 64 bytes
-	auto reps = ((kdByteLen + 7) * 8) / (64 * 8);
+	auto reps = ((kdByteLen + 7) * 8) / (CryptoPP::SHA256::BLOCKSIZE * 8);
+	// SEC/ISO/Shoup specify counter size SHOULD be equivalent
+	// to size of hash output, however, it also notes that
+	// the 4 bytes is okay. NIST specifies 4 bytes.
 	bytes ctr({0, 0, 0, 1});
 	bytes k;
 	CryptoPP::SHA256 ctx;
@@ -68,7 +67,7 @@ void Secp256k1PP::encryptECIES(Public const& _k, bytes& io_cipher)
 {
 	// interop w/go ecies implementation
 	auto r = KeyPair::create();
-	h256 z;
+	Secret z;
 	ecdh::agree(r.sec(), _k, z);
 	auto key = eciesKDF(z, bytes(), 32);
 	bytesConstRef eKey = bytesConstRef(&key).cropped(0, 16);
@@ -78,7 +77,7 @@ void Secp256k1PP::encryptECIES(Public const& _k, bytes& io_cipher)
 	bytes mKey(32);
 	ctx.Final(mKey.data());
 	
-	bytes cipherText = encryptSymNoAuth(h128(eKey), h128(), bytesConstRef(&io_cipher));
+	bytes cipherText = encryptSymNoAuth(SecureFixedHash<16>(eKey), h128(), bytesConstRef(&io_cipher));
 	if (cipherText.empty())
 		return;
 
@@ -111,8 +110,8 @@ bool Secp256k1PP::decryptECIES(Secret const& _k, bytes& io_text)
 		// invalid message: length
 		return false;
 
-	h256 z;
-	ecdh::agree(_k, *(Public*)(io_text.data()+1), z);
+	Secret z;
+	ecdh::agree(_k, *(Public*)(io_text.data() + 1), z);
 	auto key = eciesKDF(z, bytes(), 64);
 	bytesConstRef eKey = bytesConstRef(&key).cropped(0, 16);
 	bytesRef mKeyMaterial = bytesRef(&key).cropped(16, 16);
@@ -138,7 +137,7 @@ bool Secp256k1PP::decryptECIES(Secret const& _k, bytes& io_text)
 		if (mac[i] != msgMac[i])
 			return false;
 	
-	plain = decryptSymNoAuth(h128(eKey), iv, cipherNoIV);
+	plain = decryptSymNoAuth(SecureFixedHash<16>(eKey), iv, cipherNoIV).makeInsecure();
 	io_text.resize(plain.size());
 	io_text.swap(plain);
 	
@@ -223,7 +222,7 @@ Signature Secp256k1PP::sign(Secret const& _key, h256 const& _hash)
 	
 	Integer kInv = k.InverseMod(m_q);
 	Integer z(_hash.asBytes().data(), 32);
-	Integer s = (kInv * (Integer(_key.asBytes().data(), 32) * r + z)) % m_q;
+	Integer s = (kInv * (Integer(_key.data(), 32) * r + z)) % m_q;
 	if (r == 0 || s == 0)
 		BOOST_THROW_EXCEPTION(InvalidState());
 	
@@ -287,6 +286,8 @@ Public Secp256k1PP::recover(Signature _signature, bytesConstRef _message)
 	{
 		// todo: make generator member
 		p = m_curve.CascadeMultiply(u2, x, u1, m_params.GetSubgroupGenerator());
+		if (p.identity)
+			return Public();
 		m_curve.EncodePoint(recoveredbytes, p, false);
 	}
 	memcpy(recovered.data(), &recoveredbytes[1], 64);
@@ -309,7 +310,7 @@ bool Secp256k1PP::verifySecret(Secret const& _s, Public& _p)
 	return true;
 }
 
-void Secp256k1PP::agree(Secret const& _s, Public const& _r, h256& o_s)
+void Secp256k1PP::agree(Secret const& _s, Public const& _r, Secret& o_s)
 {
 	// TODO: mutex ASN1::secp256k1() singleton
 	// Creating Domain is non-const for m_oid and m_oid is not thread-safe
@@ -317,7 +318,7 @@ void Secp256k1PP::agree(Secret const& _s, Public const& _r, h256& o_s)
 	assert(d.AgreedValueLength() == sizeof(o_s));
 	byte remote[65] = {0x04};
 	memcpy(&remote[1], _r.data(), 64);
-	d.Agree(o_s.data(), _s.data(), remote);
+	d.Agree(o_s.writable().data(), _s.data(), remote);
 }
 
 void Secp256k1PP::exportPublicKey(CryptoPP::DL_PublicKey_EC<CryptoPP::ECP> const& _k, Public& o_p)

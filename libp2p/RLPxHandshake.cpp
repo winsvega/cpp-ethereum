@@ -40,7 +40,7 @@ void RLPXHandshake::writeAuth()
 	// E(remote-pubk, S(ecdhe-random, ecdh-shared-secret^nonce) || H(ecdhe-random-pubk) || pubk || nonce || 0x0)
 	Secret staticShared;
 	crypto::ecdh::agree(m_host->m_alias.sec(), m_remote, staticShared);
-	sign(m_ecdhe.seckey(), staticShared ^ m_nonce).ref().copyTo(sig);
+	sign(m_ecdhe.seckey(), staticShared.makeInsecure() ^ m_nonce).ref().copyTo(sig);
 	sha3(m_ecdhe.pubkey().ref(), hepubk);
 	m_host->m_alias.pub().ref().copyTo(pubk);
 	m_nonce.ref().copyTo(nonce);
@@ -92,7 +92,7 @@ void RLPXHandshake::readAuth()
 			
 			Secret sharedSecret;
 			crypto::ecdh::agree(m_host->m_alias.sec(), m_remote, sharedSecret);
-			m_remoteEphemeral = recover(*(Signature*)sig.data(), sharedSecret ^ m_remoteNonce);
+			m_remoteEphemeral = recover(*(Signature*)sig.data(), sharedSecret.makeInsecure() ^ m_remoteNonce);
 
 			if (sha3(m_remoteEphemeral) != *(h256*)hepubk.data())
 				clog(NetP2PConnect) << "p2p.connect.ingress auth failed (invalid: hash mismatch) for" << m_socket->remoteEndpoint();
@@ -149,6 +149,9 @@ void RLPXHandshake::error()
 
 void RLPXHandshake::transition(boost::system::error_code _ech)
 {
+	// reset timeout
+	m_idleTimer.cancel();
+	
 	if (_ech || m_nextState == Error || m_cancel)
 	{
 		clog(NetP2PConnect) << "Handshake Failed (I/O Error:" << _ech.message() << ")";
@@ -156,6 +159,18 @@ void RLPXHandshake::transition(boost::system::error_code _ech)
 	}
 	
 	auto self(shared_from_this());
+	assert(m_nextState != StartSession);
+	m_idleTimer.expires_from_now(c_timeout);
+	m_idleTimer.async_wait([this, self](boost::system::error_code const& _ec)
+	{
+		if (!_ec)
+		{
+			if (!m_socket->remoteEndpoint().address().is_unspecified())
+				clog(NetP2PConnect) << "Disconnecting " << m_socket->remoteEndpoint() << " (Handshake Timeout)";
+			cancel();
+		}
+	});
+	
 	if (m_nextState == New)
 	{
 		m_nextState = AckAuth;
@@ -243,6 +258,8 @@ void RLPXHandshake::transition(boost::system::error_code _ech)
 				m_handshakeInBuffer.resize(frameSize + ((16 - (frameSize % 16)) % 16) + h128::size);
 				ba::async_read(m_socket->ref(), boost::asio::buffer(m_handshakeInBuffer, m_handshakeInBuffer.size()), [this, self, headerRLP](boost::system::error_code ec, std::size_t)
 				{
+					m_idleTimer.cancel();
+					
 					if (ec)
 						transition(ec);
 					else
@@ -282,15 +299,4 @@ void RLPXHandshake::transition(boost::system::error_code _ech)
 			}
 		});
 	}
-	
-	m_idleTimer.expires_from_now(c_timeout);
-	m_idleTimer.async_wait([this, self](boost::system::error_code const& _ec)
-	{
-		if (!_ec)
-		{
-			if (!m_socket->remoteEndpoint().address().is_unspecified())
-				clog(NetP2PConnect) << "Disconnecting " << m_socket->remoteEndpoint() << " (Handshake Timeout)";
-			cancel();
-		}
-	});
 }

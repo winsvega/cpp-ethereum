@@ -28,6 +28,7 @@
 #include <boost/algorithm/string.hpp>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QClipboard>
 #include <liblll/Compiler.h>
 #include <liblll/CodeFragment.h>
 #if ETH_SOLIDITY || !ETH_TRUE
@@ -118,6 +119,11 @@ u256 Transact::gasPrice() const
 	return ui->gasPrice->value() * units()[units().size() - 1 - ui->gasPriceUnits->currentIndex()].first;
 }
 
+Address Transact::to() const
+{
+	return m_context->fromString(ui->destination->currentText().toStdString()).first;
+}
+
 u256 Transact::total() const
 {
 	return value() + fee();
@@ -133,7 +139,7 @@ void Transact::updateDestination()
 			if (ui->destination->findText(s, Qt::MatchExactly | Qt::MatchCaseSensitive) == -1)
 				ui->destination->addItem(s);
 	for (int i = 0; i < ui->destination->count(); ++i)
-		if (ui->destination->itemText(i) != "(Create Contract)" && !m_context->fromString(ui->destination->itemText(i).toStdString()).first)
+		if (ui->destination->itemText(i) != "(Create Contract)" && !to())
 			ui->destination->removeItem(i--);
 }
 
@@ -150,7 +156,7 @@ void Transact::updateFee()
 			ok = true;
 			break;
 		}
-	ui->send->setEnabled(ok);
+//	ui->send->setEnabled(ok);
 	QPalette p = ui->total->palette();
 	p.setColor(QPalette::WindowText, QColor(ok ? 0x00 : 0x80, 0x00, 0x00));
 	ui->total->setPalette(p);
@@ -181,7 +187,23 @@ void Transact::on_destination_currentTextChanged(QString)
 	else
 		ui->calculatedName->setText("Create Contract");
 	rejigData();
-//	updateFee();
+	//	updateFee();
+}
+
+void Transact::on_copyUnsigned_clicked()
+{
+	auto a = fromAccount();
+	u256 nonce = ui->autoNonce->isChecked() ? ethereum()->countAt(a, PendingBlock) : ui->nonce->value();
+
+	Transaction t;
+	if (isCreation())
+		// If execution is a contract creation, add Natspec to
+		// a local Natspec LEVELDB
+		t = Transaction(value(), gasPrice(), ui->gas->value(), m_data, nonce);
+	else
+		// TODO: cache like m_data.
+		t = Transaction(value(), gasPrice(), ui->gas->value(), to(), m_data, nonce);
+	qApp->clipboard()->setText(QString::fromStdString(toHex(t.rlp())));
 }
 
 static std::string toString(TransactionException _te)
@@ -319,7 +341,7 @@ void Transact::rejigData()
 
 	auto bail = [&](QString he) {
 		m_allGood = false;
-		ui->send->setEnabled(false);
+//		ui->send->setEnabled(false);
 		ui->code->setHtml(he + htmlInfo);
 	};
 
@@ -346,7 +368,7 @@ void Transact::rejigData()
 		htmlInfo = "<h4>Dump</h4>" + QString::fromStdString(dev::memDump(m_data, 8, true));
 	}
 
-	htmlInfo += "<h4>Hex</h4>" + QString(Div(Mono)) + QString::fromStdString(toHex(m_data)) + "</div>";
+	htmlInfo += "<h4>Hex</h4>" + QString(ETH_HTML_DIV(ETH_HTML_MONO)) + QString::fromStdString(toHex(m_data)) + "</div>";
 
 	// Determine the minimum amount of gas we need to play...
 	qint64 baseGas = (qint64)Transaction::gasRequired(m_data, 0);
@@ -402,7 +424,7 @@ void Transact::rejigData()
 	updateFee();
 
 	ui->code->setHtml(htmlInfo);
-	ui->send->setEnabled(m_allGood);
+//	ui->send->setEnabled(m_allGood);
 }
 
 Secret Transact::findSecret(u256 _totalReq) const

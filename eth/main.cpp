@@ -32,7 +32,6 @@
 #include <libdevcore/FileSystem.h>
 #include <libevmcore/Instruction.h>
 #include <libdevcore/StructuredLogger.h>
-#include <libethcore/ProofOfWork.h>
 #include <libethcore/EthashAux.h>
 #include <libevm/VM.h>
 #include <libevm/VMFactory.h>
@@ -67,7 +66,7 @@ using namespace dev::eth;
 using namespace boost::algorithm;
 using dev::eth::Instruction;
 
-static bool g_silence = false;
+static std::atomic<bool> g_silence = {false};
 
 void interactiveHelp()
 {
@@ -122,8 +121,16 @@ void help()
 		<< "Usage eth [OPTIONS]" << endl
 		<< "Options:" << endl << endl
 		<< "Client mode (default):" << endl
+		<< "    --olympic  Use the Olympic (0.9) protocol." << endl
+		<< "    --frontier  Use the Frontier (1.0) protocol." << endl
+		<< "    --private <name>  Use a private chain." << endl
+		<< "    --genesis-json <file>  Import the genesis block information from the given json file." << endl
+		<< endl
 		<< "    -o,--mode <full/peer>  Start a full node or a peer node (default: full)." << endl
+#if ETH_JSCONSOLE || !ETH_TRUE
 		<< "    -i,--interactive  Enter interactive mode (default: non-interactive)." << endl
+#endif
+		<< endl
 #if ETH_JSONRPC || !ETH_TRUE
 		<< "    -j,--json-rpc  Enable JSON-RPC server (default: off)." << endl
 		<< "    --json-rpc-port <n>  Specify JSON-RPC server port (implies '-j', default: " << SensibleHttpPort << ")." << endl
@@ -132,7 +139,8 @@ void help()
 		<< "    -K,--kill  First kill the blockchain." << endl
 		<< "    -R,--rebuild  Rebuild the blockchain from the existing database." << endl
 		<< "    --rescue  Attempt to rescue a corrupt database." << endl
-		<< "    --genesis-nonce <nonce>  Set the Genesis Nonce to the given hex nonce." << endl
+		<< endl
+		<< "    --import-presale <file>  Import a presale key; you'll need to type the password to this." << endl
 		<< "    -s,--import-secret <secret>  Import a secret key into the key store and use as the default." << endl
 		<< "    -S,--import-session-secret <secret>  Import a secret key into the key store and use as the default for this session only." << endl
 		<< "    --sign-key <address>  Sign all transactions with the key of the given address." << endl
@@ -140,7 +148,6 @@ void help()
 		<< "    --master <password>  Give the master password for the key store." << endl
 		<< "    --password <password>  Give a password for a private key." << endl
 		<< "    --sentinel <server>  Set the sentinel for reporting bad blocks or chain issues." << endl
-		<< "    --prime <n>  Specify n as the 6 digit prime number to start Frontier." << endl
 		<< endl
 		<< "Client transacting:" << endl
 		/*<< "    -B,--block-fees <n>  Set the block fee profit in the reference unit e.g. ¢ (default: 15)." << endl
@@ -169,10 +176,12 @@ void help()
 		<< "    --listen <port>  Listen on the given port for incoming connections (default: 30303)." << endl
 		<< "    -r,--remote <host>(:<port>)  Connect to remote host (default: none)." << endl
 		<< "    --port <port>  Connect to remote port (default: 30303)." << endl
-		<< "    --network-id <n> Only connect to other hosts with this network id (default:0)." << endl
+		<< "    --network-id <n> Only connect to other hosts with this network id." << endl
 		<< "    --upnp <on/off>  Use UPnP for NAT (default: on)." << endl
-		<< "    --no-discovery  Disable Node discovery. (experimental)" << endl
-		<< "    --pin  Only connect to required (trusted) peers. (experimental)" << endl
+		<< "    --no-discovery  Disable Node discovery." << endl
+		<< "    --pin  Only connect to required (trusted) peers." << endl
+		<< "    --hermit  Equivalent to --no-discovery --pin." << endl
+		<< "    --sociable  Forces discovery and no pinning." << endl
 //		<< "    --require-peers <peers.json>  List of required (trusted) peers. (experimental)" << endl
 		<< endl;
 	MinerCLI::streamHelp(cout);
@@ -197,9 +206,10 @@ void help()
 		<< "    -v,--verbosity <0 - 9>  Set the log verbosity from 0 to 9 (default: 8)." << endl
 		<< "    -V,--version  Show the version and exit." << endl
 		<< "    -h,--help  Show this help message and exit." << endl
-#if ETH_JSCONSOLE || !ETH_TRUE
-		<< "    --console Use interactive javascript console" << endl
-#endif
+		<< endl
+		<< "Experimental / Proof of Concept:" << endl
+		<< "    --shh  Enable Whisper" << endl
+		<< endl
 		;
 		exit(0);
 }
@@ -220,6 +230,12 @@ void version()
 	cout << "Client database version: " << dev::eth::c_databaseVersion << endl;
 	cout << "Build: " << DEV_QUOTED(ETH_BUILD_PLATFORM) << "/" << DEV_QUOTED(ETH_BUILD_TYPE) << endl;
 	exit(0);
+}
+
+void importPresale(KeyManager& _km, string const& _file, function<string()> _pass)
+{
+	KeyPair k = _km.presaleSecret(contentsString(_file), [&](bool){ return _pass(); });
+	_km.import(k.secret(), "Presale wallet" + _file + " (insecure)");
 }
 
 Address c_config = Address("ccdeac59d35627b7de09332e819d5159e7bb7250");
@@ -276,10 +292,13 @@ enum class Format
 	Human
 };
 
-void stopMiningAfterXBlocks(eth::Client* _c, unsigned _start, unsigned _mining)
+void stopMiningAfterXBlocks(eth::Client* _c, unsigned _start, unsigned& io_mining)
 {
-	if (_c->isMining() && _c->blockChain().details().number - _start == _mining)
+	if (io_mining != ~(unsigned)0 && io_mining && _c->isMining() && _c->blockChain().details().number - _start == io_mining)
+	{
 		_c->stopMining();
+		io_mining = ~(unsigned)0;
+	}
 	this_thread::sleep_for(chrono::milliseconds(100));
 }
 
@@ -522,7 +541,7 @@ void interactiveMode(eth::Client* c, std::shared_ptr<eth::TrivialGasPricer> gasP
 				{
 					try
 					{
-						Secret secret = h256(fromHex(sechex));
+						Secret secret(fromHex(sechex));
 						Address dest = h160(fromHex(hexAddr));
 						c->submitTransaction(secret, amount, dest, data, gas, gasPrice);
 					}
@@ -590,7 +609,7 @@ void interactiveMode(eth::Client* c, std::shared_ptr<eth::TrivialGasPricer> gasP
 				{
 					try
 					{
-						Secret secret = h256(fromHex(sechex));
+						Secret secret(fromHex(sechex));
 						Address dest = h160(fromHex(hexAddr));
 						c->submitTransaction(secret, amount, dest, data, gas, gasPrice, nonce);
 					}
@@ -650,7 +669,7 @@ void interactiveMode(eth::Client* c, std::shared_ptr<eth::TrivialGasPricer> gasP
 				{
 					try
 					{
-						Secret secret = h256(fromHex(sechex));
+						Secret secret(fromHex(sechex));
 						cout << " new contract address : " << c->submitTransaction(secret, amount, data, gas, gasPrice) << endl;
 					}
 					catch (BadHexCharacter& _e)
@@ -910,7 +929,12 @@ void interactiveMode(eth::Client* c, std::shared_ptr<eth::TrivialGasPricer> gasP
 							f << endl << "    STACK" << endl;
 							for (auto i: vm->stack())
 								f << (h256)i << endl;
-							f << "    MEMORY" << endl << dev::memDump(vm->memory());
+							std::string memDump = (
+								(vm->memory().size() > 1000) ?
+								" mem size greater than 1000 bytes " :
+								dev::memDump(vm->memory())
+							);
+							f << "    MEMORY" << endl << memDump;
 							f << "    STORAGE" << endl;
 							for (auto const& i: ext->state().storage(ext->myAddress))
 								f << showbase << hex << i.first << ": " << i.second << endl;
@@ -1064,8 +1088,8 @@ int main(int argc, char** argv)
 	/// Operating mode.
 	OperationMode mode = OperationMode::Node;
 	string dbPath;
-	unsigned prime = 0;
-	bool yesIReallyKnowWhatImDoing = false;
+//	unsigned prime = 0;
+//	bool yesIReallyKnowWhatImDoing = false;
 
 	/// File name for import/export.
 	string filename;
@@ -1079,13 +1103,17 @@ int main(int argc, char** argv)
 	/// General params for Node operation
 	NodeMode nodeMode = NodeMode::Full;
 	bool interactive = false;
-#if ETH_JSONRPC
-	int jsonrpc = -1;
+#if ETH_JSONRPC || !ETH_TRUE
+	int jsonRPCURL = -1;
 #endif
 	string jsonAdmin;
+	string genesisJSON;
+	dev::eth::Network releaseNetwork = c_network;
+	u256 gasFloor = UndefinedU256;
+	string privateChain;
+
 	bool upnp = true;
 	WithExisting withExisting = WithExisting::Trust;
-	bool jit = false;
 	string sentinel;
 
 	/// Networking params.
@@ -1099,7 +1127,9 @@ int main(int argc, char** argv)
 	bool bootstrap = false;
 	bool disableDiscovery = false;
 	bool pinning = false;
-	unsigned networkId = 0;
+	bool enableDiscovery = false;
+	bool noPinning = false;
+	unsigned networkId = (unsigned)-1;
 
 	/// Mining params
 	unsigned mining = 0;
@@ -1108,6 +1138,7 @@ int main(int argc, char** argv)
 	Address signingKey;
 	Address sessionKey;
 	Address beneficiary = signingKey;
+	strings presaleImports;
 
 	/// Structured logging params
 	bool structuredLogging = false;
@@ -1126,6 +1157,9 @@ int main(int argc, char** argv)
 
 	/// Wallet password stuff
 	string masterPassword;
+	
+	/// Whisper
+	bool useWhisper = false;
 
 	string configFile = getDataDir() + "/config.rlp";
 	bytes b = contents(configFile);
@@ -1134,15 +1168,13 @@ int main(int argc, char** argv)
 	Secrets toImport;
 	if (b.size())
 	{
-		RLP config(b);
-		if (config[0].size() == 32)	// secret key - import and forget.
+		try
 		{
-			Secret s = config[0].toHash<Secret>();
-			toImport.push_back(s);
-		}
-		else							// new format - just use it as an address.
+			RLP config(b);
 			signingKey = config[0].toHash<Address>();
-		beneficiary = config[1].toHash<Address>();
+			beneficiary = config[1].toHash<Address>();
+		}
+		catch (...) {}
 	}
 
 	MinerCLI m(MinerCLI::OperationMode::None);
@@ -1189,7 +1221,7 @@ int main(int argc, char** argv)
 			mode = OperationMode::Export;
 			filename = argv[++i];
 		}
-		else if (arg == "--prime" && i + 1 < argc)
+/*		else if (arg == "--prime" && i + 1 < argc)
 			try
 			{
 				prime = stoi(argv[++i]);
@@ -1201,7 +1233,7 @@ int main(int argc, char** argv)
 			}
 		else if (arg == "--yes-i-really-know-what-im-doing")
 			yesIReallyKnowWhatImDoing = true;
-		else if (arg == "--sentinel" && i + 1 < argc)
+*/		else if (arg == "--sentinel" && i + 1 < argc)
 			sentinel = argv[++i];
 		else if (arg == "--mine-on-wrong-chain")
 			mineOnWrongChain = true;
@@ -1250,6 +1282,15 @@ int main(int argc, char** argv)
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
 				return -1;
 			}
+		else if (arg == "--private" && i + 1 < argc)
+			try {
+				privateChain = argv[++i];
+			}
+			catch (...)
+			{
+				cerr << "Bad " << arg << " option: " << argv[i] << endl;
+				return -1;
+			}
 		else if (arg == "-K" || arg == "--kill-blockchain" || arg == "--kill")
 			withExisting = WithExisting::Kill;
 		else if (arg == "-R" || arg == "--rebuild")
@@ -1279,13 +1320,13 @@ int main(int argc, char** argv)
 		else if ((arg == "-s" || arg == "--import-secret") && i + 1 < argc)
 		{
 			Secret s(fromHex(argv[++i]));
-			toImport.push_back(s);
+			toImport.emplace_back(s);
 			signingKey = toAddress(s);
 		}
 		else if ((arg == "-S" || arg == "--import-session-secret") && i + 1 < argc)
 		{
 			Secret s(fromHex(argv[++i]));
-			toImport.push_back(s);
+			toImport.emplace_back(s);
 			sessionKey = toAddress(s);
 		}
 		else if ((arg == "--sign-key") && i + 1 < argc)
@@ -1303,11 +1344,11 @@ int main(int argc, char** argv)
 		}
 		else if ((arg == "-d" || arg == "--path" || arg == "--db-path") && i + 1 < argc)
 			dbPath = argv[++i];
-		else if (arg == "--genesis-nonce" && i + 1 < argc)
+		else if ((arg == "--genesis-json" || arg == "--genesis") && i + 1 < argc)
 		{
 			try
 			{
-				CanonBlockChain::setGenesisNonce(Nonce(argv[++i]));
+				genesisJSON = contentsString(argv[++i]);
 			}
 			catch (...)
 			{
@@ -1315,6 +1356,12 @@ int main(int argc, char** argv)
 				return -1;
 			}
 		}
+		else if (arg == "--frontier")
+			releaseNetwork = eth::Network::Frontier;
+		else if (arg == "--gas-floor" && i + 1 < argc)
+			gasFloor = u256(argv[++i]);
+		else if (arg == "--olympic")
+			releaseNetwork = eth::Network::Olympic;
 /*		else if ((arg == "-B" || arg == "--block-fees") && i + 1 < argc)
 		{
 			try
@@ -1407,20 +1454,26 @@ int main(int argc, char** argv)
 			disableDiscovery = true;
 		else if (arg == "--pin")
 			pinning = true;
+		else if (arg == "--hermit")
+			pinning = disableDiscovery = true;
+		else if (arg == "--sociable")
+			noPinning = enableDiscovery = true;
+		else if (arg == "--import-presale" && i + 1 < argc)
+			presaleImports.push_back(argv[++i]);
 		else if (arg == "-f" || arg == "--force-mining")
 			forceMining = true;
-		else if (arg == "-i" || arg == "--interactive")
+		else if (arg == "--old-interactive")
 			interactive = true;
-#if ETH_JSONRPC
+#if ETH_JSONRPC || !ETH_TRUE
 		else if ((arg == "-j" || arg == "--json-rpc"))
-			jsonrpc = jsonrpc == -1 ? SensibleHttpPort : jsonrpc;
+			jsonRPCURL = jsonRPCURL == -1 ? SensibleHttpPort : jsonRPCURL;
 		else if (arg == "--json-rpc-port" && i + 1 < argc)
-			jsonrpc = atoi(argv[++i]);
+			jsonRPCURL = atoi(argv[++i]);
 		else if (arg == "--json-admin" && i + 1 < argc)
 			jsonAdmin = argv[++i];
 #endif
-#if ETH_JSCONSOLE
-		else if (arg == "--console")
+#if ETH_JSCONSOLE || !ETH_TRUE
+		else if (arg == "-i" || arg == "--interactive" || arg == "--console")
 			useConsole = true;
 #endif
 		else if ((arg == "-v" || arg == "--verbosity") && i + 1 < argc)
@@ -1457,6 +1510,8 @@ int main(int argc, char** argv)
 			}
 		}
 #endif
+		else if (arg == "--shh")
+			useWhisper = true;
 		else if (arg == "-h" || arg == "--help")
 			help();
 		else if (arg == "-V" || arg == "--version")
@@ -1467,6 +1522,17 @@ int main(int argc, char** argv)
 			exit(-1);
 		}
 	}
+
+	// Set up all the chain config stuff.
+	resetNetwork(releaseNetwork);
+	if (!privateChain.empty())
+		CanonBlockChain<Ethash>::forceGenesisExtraData(sha3(privateChain).asBytes());
+	if (!genesisJSON.empty())
+		CanonBlockChain<Ethash>::setGenesis(genesisJSON);
+	if (gasFloor != UndefinedU256)
+		c_gasFloorTarget = gasFloor;
+	if (networkId == (unsigned)-1)
+		networkId =  (unsigned)c_network;
 
 	if (g_logVerbosity > 0)
 	{
@@ -1513,7 +1579,7 @@ int main(int argc, char** argv)
 		};
 
 	auto getPassword = [&](string const& prompt){
-		auto s = g_silence;
+		bool s = g_silence;
 		g_silence = true;
 		cout << endl;
 		string ret = dev::getPassword(prompt);
@@ -1525,16 +1591,17 @@ int main(int argc, char** argv)
 	};
 
 	StructuredLogger::get().initialize(structuredLogging, structuredLoggingFormat, structuredLoggingURL);
-	VMFactory::setKind(jit ? VMKind::JIT : VMKind::Interpreter);
-	auto netPrefs = publicIP.empty() ? NetworkPreferences(listenIP ,listenPort, upnp) : NetworkPreferences(publicIP, listenIP ,listenPort, upnp);
-	netPrefs.discovery = !disableDiscovery;
-	netPrefs.pin = pinning;
+	auto netPrefs = publicIP.empty() ? NetworkPreferences(listenIP, listenPort, upnp) : NetworkPreferences(publicIP, listenIP ,listenPort, upnp);
+	netPrefs.discovery = (privateChain.empty() && !disableDiscovery) || enableDiscovery;
+	netPrefs.pin = (pinning || !privateChain.empty()) && !noPinning;
+
 	auto nodesState = contents((dbPath.size() ? dbPath : getDataDir()) + "/network.rlp");
+	auto caps = useWhisper ? set<string>{"eth", "shh"} : set<string>{"eth"};
 	dev::WebThreeDirect web3(
 		WebThreeDirect::composeClientVersion("++eth", clientName),
 		dbPath,
 		withExisting,
-		nodeMode == NodeMode::Full ? set<string>{"eth"/*, "shh"*/} : set<string>(),
+		nodeMode == NodeMode::Full ? caps : set<string>(),
 		netPrefs,
 		&nodesState);
 	web3.ethereum()->setMineOnBadChain(mineOnWrongChain);
@@ -1630,7 +1697,7 @@ int main(int argc, char** argv)
 		cout << imported << " imported in " << e << " seconds at " << (round(imported * 10 / e) / 10) << " blocks/s (#" << web3.ethereum()->number() << ")" << endl;
 		return 0;
 	}
-
+/*
 	if (c_network == eth::Network::Frontier && !yesIReallyKnowWhatImDoing)
 	{
 		auto pd = contents(getDataDir() + "primes");
@@ -1650,7 +1717,7 @@ int main(int argc, char** argv)
 		primes.insert(prime);
 		writeFile(getDataDir() + "primes", rlp(primes));
 	}
-
+*/
 	if (keyManager.exists())
 	{
 		if (masterPassword.empty() || !keyManager.load(masterPassword))
@@ -1659,7 +1726,7 @@ int main(int argc, char** argv)
 				masterPassword = getPassword("Please enter your MASTER password: ");
 				if (keyManager.load(masterPassword))
 					break;
-				cout << "Password invalid. Try again." << endl;
+				cout << "The password you entered is incorrect. If you have forgotten your password, and you wish to start afresh, manually remove the file: " + getDataDir("ethereum") + "/keys.info" << endl;
 			}
 	}
 	else
@@ -1677,6 +1744,9 @@ int main(int argc, char** argv)
 		keyManager.create(masterPassword);
 	}
 
+	for (auto const& presale: presaleImports)
+		importPresale(keyManager, presale, [&](){ return getPassword("Enter your wallet password for " + presale + ": "); });
+
 	for (auto const& s: toImport)
 	{
 		keyManager.import(s, "Imported key (UNSAFE)");
@@ -1685,7 +1755,14 @@ int main(int argc, char** argv)
 	}
 
 	if (keyManager.accounts().empty())
-		keyManager.import(Secret::random(), "Default key");
+	{
+		h128 uuid = keyManager.import(Secret::random(), "Default key");
+		if (!beneficiary)
+			beneficiary = keyManager.address(uuid);
+		if (!signingKey)
+			signingKey = keyManager.address(uuid);
+		writeFile(configFile, rlpList(signingKey, beneficiary));
+	}
 
 	cout << ethCredits();
 	web3.setIdealPeerCount(peers);
@@ -1697,6 +1774,8 @@ int main(int argc, char** argv)
 	{
 		c->setGasPricer(gasPricer);
 		c->setForceMining(forceMining);
+		// TODO: expose sealant interface.
+		c->setShouldPrecomputeDAG(m.shouldPrecompute());
 		c->setTurboMining(m.minerType() == MinerCLI::MinerType::GPU);
 		c->setAddress(beneficiary);
 		c->setNetworkId(networkId);
@@ -1713,23 +1792,24 @@ int main(int argc, char** argv)
 	else
 		cout << "Networking disabled. To start, use netstart or pass -b or a remote host." << endl;
 
-	if (useConsole && jsonrpc == -1)
-		jsonrpc = SensibleHttpPort;
+	if (useConsole && jsonRPCURL == -1)
+		jsonRPCURL = SensibleHttpPort;
 
 #if ETH_JSONRPC || !ETH_TRUE
 	shared_ptr<dev::WebThreeStubServer> jsonrpcServer;
 	unique_ptr<jsonrpc::AbstractServerConnector> jsonrpcConnector;
-	if (jsonrpc > -1)
+	if (jsonRPCURL > -1)
 	{
-		jsonrpcConnector = unique_ptr<jsonrpc::AbstractServerConnector>(new jsonrpc::HttpServer(jsonrpc, "", "", SensibleHttpThreads));
+		jsonrpcConnector = unique_ptr<jsonrpc::AbstractServerConnector>(new jsonrpc::HttpServer(jsonRPCURL, "", "", SensibleHttpThreads));
 		jsonrpcServer = make_shared<dev::WebThreeStubServer>(*jsonrpcConnector.get(), web3, make_shared<SimpleAccountHolder>([&](){ return web3.ethereum(); }, getAccountPassword, keyManager), vector<KeyPair>(), keyManager, *gasPricer);
-		jsonrpcServer->setMiningBenefactorChanger([&](Address const& a) { beneficiary = a; });
 		jsonrpcServer->StartListening();
 		if (jsonAdmin.empty())
-			jsonAdmin = jsonrpcServer->newSession(SessionPermissions{{Priviledge::Admin}});
+			jsonAdmin = jsonrpcServer->newSession(SessionPermissions{{Privilege::Admin}});
 		else
-			jsonrpcServer->addSession(jsonAdmin, SessionPermissions{{Priviledge::Admin}});
+			jsonrpcServer->addSession(jsonAdmin, SessionPermissions{{Privilege::Admin}});
 		cout << "JSONRPC Admin Session Key: " << jsonAdmin << endl;
+		writeFile(getDataDir("web3") + "/session.key", jsonAdmin);
+		writeFile(getDataDir("web3") + "/session.url", "http://localhost:" + toString(jsonRPCURL));
 	}
 #endif
 
@@ -1755,6 +1835,8 @@ int main(int argc, char** argv)
 #if ETH_JSCONSOLE || !ETH_TRUE
 			JSLocalConsole console;
 			shared_ptr<dev::WebThreeStubServer> rpcServer = make_shared<dev::WebThreeStubServer>(*console.connector(), web3, make_shared<SimpleAccountHolder>([&](){ return web3.ethereum(); }, getAccountPassword, keyManager), vector<KeyPair>(), keyManager, *gasPricer);
+			string sessionKey = rpcServer->newSession(SessionPermissions{{Privilege::Admin}});
+			console.eval("web3.admin.setSessionKey('" + sessionKey + "')");
 			while (!g_exit)
 			{
 				console.readExpression();

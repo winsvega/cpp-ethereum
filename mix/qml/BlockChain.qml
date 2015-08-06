@@ -16,11 +16,12 @@ ColumnLayout {
 	property alias trDialog: transactionDialog
 	property alias blockChainRepeater: blockChainRepeater
 	property variant model
+	property int scenarioIndex
 	property var states: ({})
 	spacing: 0
 	property int previousWidth
 	property variant debugTrRequested: []
-	signal chainChanged
+	signal chainChanged(var blockIndex, var txIndex, var item)
 	signal chainReloaded
 	signal txSelected(var blockIndex, var txIndex)
 	signal rebuilding
@@ -28,17 +29,67 @@ ColumnLayout {
 
 	Connections
 	{
-		target: codeModel
-		onContractRenamed: {
-			rebuild.startBlinking()
+		target: projectModel.stateListModel
+		onAccountsValidated:
+		{
+			if (rebuild.accountsSha3 !== codeModel.sha3(JSON.stringify(_accounts)))
+				rebuild.needRebuild("AccountsChanged")
+			else
+				rebuild.notNeedRebuild("AccountsChanged")
 		}
-		onNewContractCompiled: {
-			rebuild.startBlinking()
+		onContractsValidated:
+		{
+			if (rebuild.contractsSha3 !== codeModel.sha3(JSON.stringify(_contracts)))
+				rebuild.needRebuild("ContractsChanged")
+			else
+				rebuild.notNeedRebuild("ContractsChanged")
 		}
 	}
 
+	Connections
+	{
+		target: codeModel
+		onContractRenamed: {
+			rebuild.needRebuild("ContractRenamed")
+		}
+		onNewContractCompiled: {
+			rebuild.needRebuild("NewContractCompiled")
+		}
+		onCompilationComplete: {
+			for (var c in rebuild.contractsHex)
+			{
+				if (codeModel.contracts[c] === undefined || codeModel.contracts[c].codeHex !== rebuild.contractsHex[c])
+				{
+					if (!rebuild.containsRebuildCause("CodeChanged"))
+					{
+						rebuild.needRebuild("CodeChanged")
+					}
+					return
+				}
+			}
+			rebuild.notNeedRebuild("CodeChanged")
+		}
+	}
+
+
 	onChainChanged: {
-		rebuild.startBlinking()
+			if (rebuild.txSha3[blockIndex][txIndex] !== codeModel.sha3(JSON.stringify(model.blocks[blockIndex].transactions[txIndex])))
+			{
+				rebuild.txChanged.push(rebuild.txSha3[blockIndex][txIndex])
+				rebuild.needRebuild("txChanged")
+			}
+			else {
+				for (var k in rebuild.txChanged)
+				{
+					if (rebuild.txChanged[k] === rebuild.txSha3[blockIndex][txIndex])
+					{
+						rebuild.txChanged.splice(k, 1)
+						break
+					}
+				}
+				if (rebuild.txChanged.length === 0)
+					rebuild.notNeedRebuild("txChanged")
+			}
 	}
 
 	onWidthChanged:
@@ -63,13 +114,15 @@ ColumnLayout {
 		return states[record]
 	}
 
-	function load(scenario)
+	function load(scenario, index)
 	{
 		if (!scenario)
 			return;
 		if (model)
 			rebuild.startBlinking()
 		model = scenario
+		scenarioIndex = index
+		genesis.scenarioIndex = index
 		states = []
 		blockModel.clear()
 		for (var b in model.blocks)
@@ -86,47 +139,7 @@ ColumnLayout {
 
 	RowLayout
 	{
-		id: header
-		spacing: 0
-		Layout.preferredHeight: 24
-		Rectangle
-		{
-			Layout.preferredWidth: statusWidth
-			Layout.preferredHeight: parent.height
-			color: "transparent"
-			Image {
-				id: debugImage
-				anchors.verticalCenter: parent.verticalCenter
-				anchors.horizontalCenter: parent.horizontalCenter
-				source: "qrc:/qml/img/recycleicon@2x.png"
-				width: statusWidth + 10
-				fillMode: Image.PreserveAspectFit
-			}
-		}
-		Rectangle
-		{
-			anchors.verticalCenter: parent.verticalCenter
-			Layout.preferredWidth: fromWidth
-			Label
-			{
-				anchors.verticalCenter: parent.verticalCenter
-				text: "From"
-				anchors.left: parent.left
-				anchors.leftMargin: horizontalMargin
-			}
-		}
-		Label
-		{
-			text: "To"
-			anchors.verticalCenter: parent.verticalCenter
-			Layout.preferredWidth: toWidth + cellSpacing
-		}
-		Label
-		{
-			text: ""
-			anchors.verticalCenter: parent.verticalCenter
-			Layout.preferredWidth: debugActionWidth
-		}
+		Layout.preferredHeight: 10
 	}
 
 	Rectangle
@@ -149,7 +162,9 @@ ColumnLayout {
 
 				Block
 				{
+					id: genesis
 					scenario: blockChainPanel.model
+					scenarioIndex: scenarioIndex
 					Layout.preferredWidth: blockChainScrollView.width
 					Layout.preferredHeight: 60
 					blockIndex: -1
@@ -169,12 +184,18 @@ ColumnLayout {
 						itemAt(blockIndex).editTx(txIndex)
 					}
 
+					function select(blockIndex, txIndex)
+					{
+						itemAt(blockIndex).select(txIndex)
+					}
+
 					Block
 					{
 						Connections
 						{
 							target: block
-							onTxSelected: {
+							onTxSelected:
+							{
 								blockChainPanel.txSelected(index, txIndex)
 							}
 						}
@@ -274,8 +295,7 @@ ColumnLayout {
 
 			Rectangle {
 				Layout.preferredWidth: 100
-				Layout.preferredHeight: 30
-
+				Layout.preferredHeight: 30				
 				ScenarioButton {
 					id: rebuild
 					text: qsTr("Rebuild")
@@ -283,6 +303,44 @@ ColumnLayout {
 					height: 30
 					roundLeft: true
 					roundRight: true
+					property variant contractsHex: ({})
+					property variant txSha3: ({})
+					property variant accountsSha3
+					property variant contractsSha3
+					property variant txChanged: []
+					property var blinkReasons: []
+
+					function needRebuild(reason)
+					{
+						rebuild.startBlinking()
+						blinkReasons.push(reason)
+					}
+
+					function containsRebuildCause(reason)
+					{
+						for (var c in blinkReasons)
+						{
+							if (blinkReasons[c] === reason)
+								return true
+						}
+						return false
+					}
+
+
+					function notNeedRebuild(reason)
+					{
+						for (var c in blinkReasons)
+						{
+							if (blinkReasons[c] === reason)
+							{
+								blinkReasons.splice(c, 1)
+								break
+							}
+						}
+						if (blinkReasons.length === 0)
+							rebuild.stopBlinking()
+					}
+
 					onClicked:
 					{
 						if (ensureNotFuturetime.running)
@@ -318,7 +376,6 @@ ColumnLayout {
 								block.status = "mined"
 								retBlocks.push(block)
 							}
-
 						}
 						if (retBlocks.length === 0)
 							retBlocks.push(projectModel.stateListModel.createEmptyBlock())
@@ -335,8 +392,46 @@ ColumnLayout {
 							blockModel.append(model.blocks[j])
 
 						ensureNotFuturetime.start()
+						takeCodeSnapshot()
+						takeTxSnaphot()
+						takeAccountsSnapshot()
+						takeContractsSnapShot()
+						blinkReasons = []
 						clientModel.setupScenario(model);						
 					}
+
+					function takeContractsSnapShot()
+					{
+						contractsSha3 = codeModel.sha3(JSON.stringify(model.contracts))
+					}
+
+					function takeAccountsSnapshot()
+					{
+						accountsSha3 = codeModel.sha3(JSON.stringify(model.accounts))
+					}
+
+					function takeCodeSnapshot()
+					{
+						contractsHex = {}
+						for (var c in codeModel.contracts)
+							contractsHex[c] = codeModel.contracts[c].codeHex
+					}
+
+					function takeTxSnaphot()
+					{
+						txSha3 = {}
+						txChanged = []
+						for (var j = 0; j < model.blocks.length; j++)
+						{
+							for (var k = 0; k < model.blocks[j].transactions.length; k++)
+							{
+								if (txSha3[j] === undefined)
+									txSha3[j] = {}
+								txSha3[j][k] = codeModel.sha3(JSON.stringify(model.blocks[j].transactions[k]))
+							}
+						}
+					}
+
 					buttonShortcut: ""
 					sourceImg: "qrc:/qml/img/recycleicon@2x.png"
 				}
@@ -354,19 +449,22 @@ ColumnLayout {
 					text: qsTr("Add Tx")
 					onClicked:
 					{
-						var lastBlock = model.blocks[model.blocks.length - 1];
-						if (lastBlock.status === "mined")
+						if (model && model.blocks)
 						{
-							var newblock = projectModel.stateListModel.createEmptyBlock()
-							blockModel.appendBlock(newblock)
-							model.blocks.push(newblock);
-						}
+							var lastBlock = model.blocks[model.blocks.length - 1];
+							if (lastBlock.status === "mined")
+							{
+								var newblock = projectModel.stateListModel.createEmptyBlock()
+								blockModel.appendBlock(newblock)
+								model.blocks.push(newblock);
+							}
 
-						var item = TransactionHelper.defaultTransaction()
-						transactionDialog.stateAccounts = model.accounts
-						transactionDialog.execute = true
-						transactionDialog.editMode = false
-						transactionDialog.open(model.blocks[model.blocks.length - 1].transactions.length, model.blocks.length - 1, item)
+							var item = TransactionHelper.defaultTransaction()
+							transactionDialog.stateAccounts = model.accounts
+							transactionDialog.execute = true
+							transactionDialog.editMode = false
+							transactionDialog.open(model.blocks[model.blocks.length - 1].transactions.length, model.blocks.length - 1, item)
+						}
 					}
 					width: 100
 					height: 30
@@ -475,6 +573,7 @@ ColumnLayout {
 							trModel.sender = _r.sender
 							trModel.returnParameters = _r.returnParameters
 							blockModel.setTransaction(blockIndex, trIndex, trModel)
+							blockChainRepeater.select(blockIndex, trIndex)
 							return;
 						}
 					}
@@ -487,7 +586,7 @@ ColumnLayout {
 					itemTr.parameters = _r.parameters
 					itemTr.isContractCreation = itemTr.functionId === itemTr.contractId
 					itemTr.label = _r.label
-					itemTr.isFunctionCall = itemTr.functionId !== ""
+					itemTr.isFunctionCall = itemTr.functionId !== "" && itemTr.functionId !== "<none>"
 					itemTr.returned = _r.returned
 					itemTr.value = QEtherHelper.createEther(_r.value, QEther.Wei)
 					itemTr.sender = _r.sender
@@ -496,6 +595,7 @@ ColumnLayout {
 					itemTr.returnParameters = _r.returnParameters
 					model.blocks[model.blocks.length - 1].transactions.push(itemTr)
 					blockModel.appendTransaction(itemTr)
+					blockChainRepeater.select(blockIndex, trIndex)
 				}
 
 				onNewState: {
@@ -516,7 +616,7 @@ ColumnLayout {
 					clientModel.addAccount(ac.secret);
 					for (var k in Object.keys(blockChainPanel.states))
 						blockChainPanel.states[k].accounts["0x" + ac.address] = "0 wei" // add the account in all the previous state (balance at O)
-					accountAdded(ac.address, "0")
+					accountAdded("0x" + ac.address, "0")
 				}
 				Layout.preferredWidth: 100
 				Layout.preferredHeight: 30
@@ -548,9 +648,8 @@ ColumnLayout {
 			else {
 				model.blocks[blockIndex].transactions[transactionIndex] = item
 				blockModel.setTransaction(blockIndex, transactionIndex, item)
-				chainChanged()
+				chainChanged(blockIndex, transactionIndex, item)
 			}
-
 		}
 	}
 }

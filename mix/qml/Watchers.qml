@@ -13,7 +13,6 @@ import "."
 
 Rectangle {
 	color: "#4F4F4F"
-	radius: 4
 	property variant tx
 	property variant currentState
 	property variant bc
@@ -83,7 +82,7 @@ Rectangle {
 				Label {
 					id: fromLabel
 					text: qsTr("from")
-					visible: from.text !== ""
+					visible: false
 					color: "#EAB920"					
 				}
 				Label {
@@ -97,7 +96,7 @@ Rectangle {
 				Label {
 					id: toLabel
 					text: qsTr("to")
-					visible: from.text !== ""
+					visible: false
 					color: "#EAB920"
 				}
 				Label {

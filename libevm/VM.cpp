@@ -103,7 +103,7 @@ void VM::checkRequirements(u256& io_gas, ExtVMFace& _ext, OnOpFunc const& _onOp,
 		newTempSize = memNeed(m_stack.back(), m_stack[m_stack.size() - 2]);
 		break;
 	case Instruction::SHA3:
-		runGas = c_sha3Gas + (m_stack[m_stack.size() - 2] + 31) / 32 * c_sha3WordGas;
+		runGas = c_sha3Gas + ((bigint)m_stack[m_stack.size() - 2] + 31) / 32 * c_sha3WordGas;
 		newTempSize = memNeed(m_stack.back(), m_stack[m_stack.size() - 2]);
 		break;
 	case Instruction::CALLDATACOPY:
@@ -392,6 +392,7 @@ bytesConstRef VM::execImpl(u256& io_gas, ExtVMFace& _ext, OnOpFunc const& _onOp)
 			auto a = asAddress(m_stack.back());
 			m_stack.pop_back();
 			copyDataToMemory(&_ext.codeAt(a), m_stack, m_temp);
+			break;
 		}
 		case Instruction::GASPRICE:
 			m_stack.push_back(_ext.gasPrice);
@@ -400,19 +401,19 @@ bytesConstRef VM::execImpl(u256& io_gas, ExtVMFace& _ext, OnOpFunc const& _onOp)
 			m_stack.back() = (u256)_ext.blockhash(m_stack.back());
 			break;
 		case Instruction::COINBASE:
-			m_stack.push_back((u160)_ext.currentBlock.coinbaseAddress);
+			m_stack.push_back((u160)_ext.currentBlock.coinbaseAddress());
 			break;
 		case Instruction::TIMESTAMP:
-			m_stack.push_back(_ext.currentBlock.timestamp);
+			m_stack.push_back(_ext.currentBlock.timestamp());
 			break;
 		case Instruction::NUMBER:
-			m_stack.push_back(_ext.currentBlock.number);
+			m_stack.push_back(_ext.currentBlock.number());
 			break;
 		case Instruction::DIFFICULTY:
-			m_stack.push_back(_ext.currentBlock.difficulty);
+			m_stack.push_back(_ext.currentBlock.difficulty());
 			break;
 		case Instruction::GASLIMIT:
-			m_stack.push_back(_ext.currentBlock.gasLimit);
+			m_stack.push_back(_ext.currentBlock.gasLimit());
 			break;
 		case Instruction::PUSH1:
 		case Instruction::PUSH2:

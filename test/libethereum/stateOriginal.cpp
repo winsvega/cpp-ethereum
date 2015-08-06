@@ -25,6 +25,7 @@
 #include <libethereum/CanonBlockChain.h>
 #include <libethereum/State.h>
 #include <libethcore/Farm.h>
+#include <libethcore/BasicAuthority.h>
 #include <libethereum/Defaults.h>
 #include <test/TestHelper.h>
 
@@ -53,17 +54,18 @@ BOOST_AUTO_TEST_CASE(Complex)
 
 	cnote << "Testing State...";
 
-	KeyPair me = sha3("Gav Wood");
-	KeyPair myMiner = sha3("Gav's Miner");
+	KeyPair me = Secret(sha3("Gav Wood"));
+	KeyPair myMiner = Secret(sha3("Gav's Miner"));
 //	KeyPair you = sha3("123");
 
 	Defaults::setDBPath(boost::filesystem::temp_directory_path().string() + "/" + toString(chrono::system_clock::now().time_since_epoch().count()));
 
-	OverlayDB stateDB = State::openDB();
-	CanonBlockChain bc;
+	OverlayDB stateDB = State::openDB(h256());
+	CanonBlockChain<BasicAuthority> bc;
 	cout << bc;
 
-	State s(stateDB, BaseState::CanonGenesis, myMiner.address());
+	State s = bc.genesisState(stateDB);
+	s.setAddress(myMiner.address());
 	cout << s;
 
 	// Sync up - this won't do much until we use the last state.

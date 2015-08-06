@@ -8,6 +8,7 @@ import org.ethereum.qml.QEther 1.0
 import "js/TransactionHelper.js" as TransactionHelper
 import "js/InputValidator.js" as InputValidator
 import "js/NetworkDeployment.js" as NetworkDeployment
+import "js/QEtherHelper.js" as QEtherHelper
 import "."
 
 Dialog {
@@ -53,7 +54,6 @@ Dialog {
 		paramValues = item.parameters !== undefined ? item.parameters : {};
 		if (item.sender)
 			senderComboBox.select(item.sender);
-
 
 		trTypeCreate.checked = item.isContractCreation
 		trTypeSend.checked = !item.isFunctionCall
@@ -125,9 +125,9 @@ Dialog {
 	function loadParameters() {
 		paramsModel = []
 		if (functionComboBox.currentIndex >= 0 && functionComboBox.currentIndex < functionsModel.count) {
-			var contract = codeModel.contracts[contractFromToken(contractCreationComboBox.currentValue())];
+			var contract = codeModel.contracts[TransactionHelper.contractFromToken(recipientsAccount.currentValue())];
 			if (contract) {
-				var func = contract.contract.functions[functionComboBox.currentIndex + 1];
+				var func = getFunction(functionComboBox.currentText, contract);
 				if (func) {
 					var parameters = func.parameters;
 					for (var p = 0; p < parameters.length; p++)
@@ -138,10 +138,21 @@ Dialog {
 		initTypeLoader();
 	}
 
+	function getFunction(name, contract)
+	{
+		for (var k in contract.contract.functions)
+		{
+			if (contract.contract.functions[k].name === name)
+			{
+				return contract.contract.functions[k]
+			}
+		}
+		return null
+	}
+
 	function initTypeLoader()
 	{
-		paramScroll.value = {}
-		paramScroll.members = []
+		paramScroll.clear()
 		paramScroll.value = paramValues;
 		paramScroll.members = paramsModel;
 		paramScroll.updateView()
@@ -188,7 +199,7 @@ Dialog {
 		if (!item.isContractCreation)
 		{
 			item.contractId = recipientsAccount.currentValue();
-			item.label = contractFromToken(item.contractId) + "." + item.functionId + "()";
+			item.label = TransactionHelper.contractFromToken(item.contractId) + "." + item.functionId + "()";
 			if (recipientsAccount.current().type === "address")
 			{
 				item.functionId = "";
@@ -205,14 +216,7 @@ Dialog {
 		item.sender = senderComboBox.model[senderComboBox.currentIndex].secret;
 		item.parameters = paramValues;
 		return item;
-	}
-
-	function contractFromToken(token)
-	{
-		if (token.indexOf('<') === 0)
-			return token.replace("<", "").replace(">", "").split(" - ")[0];
-		return token;
-	}
+	}	
 
 	function load(isContractCreation, isFunctionCall, functionId, contractId)
 	{
@@ -232,11 +236,13 @@ Dialog {
 				recipientsAccount.select(contractId);
 			if (functionId)
 				selectFunction(functionId);
+			else
+				functionComboBox.currentIndex = 0
 			if (isFunctionCall)
 			{
 				labelRecipient.text = qsTr("Recipient Contract")
 				functionRect.show()
-				loadFunctions(contractFromToken(recipientsAccount.currentValue()))
+				loadFunctions(TransactionHelper.contractFromToken(recipientsAccount.currentValue()))
 				loadParameters();
 				paramScroll.updateView()
 			}
@@ -416,7 +422,7 @@ Dialog {
 						onIndexChanged:
 						{
 							if (rbbuttonList.current.objectName === "trTypeExecute")
-								loadFunctions(contractFromToken(currentValue()))
+								loadFunctions(TransactionHelper.contractFromToken(currentValue()))
 						}
 					}
 
@@ -484,18 +490,16 @@ Dialog {
 				StructView
 				{
 					id: paramScroll
-					members: paramsModel;
+					members: paramsModel
 					accounts: senderComboBox.model
 					context: "parameter"
 					Layout.fillWidth: true
 					function updateView()
 					{
 						paramScroll.visible = paramsModel.length > 0
-						paramScroll.Layout.preferredHeight = paramsModel.length < 6 ? paramsModel.length * 30 : 205
+						paramScroll.Layout.preferredHeight = paramScroll.colHeight
 						if (paramsModel.length === 0)
-						{
 							paramScroll.height = 0
-						}
 					}
 				}
 
@@ -516,7 +520,7 @@ Dialog {
 						Layout.preferredWidth: 350
 						id: valueField
 						edit: true
-						displayFormattedValue: false
+						displayFormattedValue: true
 						displayUnitSelection: true
 					}
 				}
@@ -587,7 +591,7 @@ Dialog {
 									target: functionComboBox
 									onCurrentIndexChanged:
 									{
-										estimatedGas.displayGas(contractFromToken(recipientsAccount.currentValue()), functionComboBox.currentText)
+										estimatedGas.displayGas(TransactionHelper.contractFromToken(recipientsAccount.currentValue()), functionComboBox.currentText)
 									}
 								}
 
@@ -604,7 +608,7 @@ Dialog {
 								function updateView()
 								{
 									if (rbbuttonList.current.objectName === "trTypeExecute")
-										estimatedGas.displayGas(contractFromToken(recipientsAccount.currentValue()), functionComboBox.currentText)
+										estimatedGas.displayGas(TransactionHelper.contractFromToken(recipientsAccount.currentValue()), functionComboBox.currentText)
 									else if (rbbuttonList.current.objectName === "trTypeCreate")
 									{
 										var contractName = contractCreationComboBox.currentValue()
@@ -652,11 +656,12 @@ Dialog {
 							Label {
 								id: gasPriceMarket
 								anchors.top: gasPriceLabel.bottom
+								anchors.topMargin: 10
 								Component.onCompleted:
 								{
 									NetworkDeployment.gasPrice(function(result)
 									{
-										gasPriceMarket.text = qsTr("Current market: ") + " " + result + " Wei";
+										gasPriceMarket.text = qsTr("Current market: ") + " " + QEtherHelper.createEther(result, QEther.Wei).format()
 									}, function (){});
 								}
 							}
@@ -664,7 +669,7 @@ Dialog {
 					}
 
 					Ether {
-						Layout.preferredWidth: 350
+						Layout.preferredWidth: 400
 						id: gasPriceField
 						edit: true
 						displayFormattedValue: false

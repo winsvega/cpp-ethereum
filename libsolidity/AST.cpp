@@ -382,6 +382,27 @@ vector<pair<FixedHash<4>, FunctionTypePointer>> const& ContractDefinition::getIn
 	return *m_interfaceFunctionList;
 }
 
+string const& ContractDefinition::devDocumentation() const
+{
+	return m_devDocumentation;
+}
+
+string const& ContractDefinition::userDocumentation() const
+{
+	return m_userDocumentation;
+}
+
+void ContractDefinition::setDevDocumentation(string const& _devDocumentation)
+{
+	m_devDocumentation = _devDocumentation;
+}
+
+void ContractDefinition::setUserDocumentation(string const& _userDocumentation)
+{
+	m_userDocumentation = _userDocumentation;
+}
+
+
 vector<Declaration const*> const& ContractDefinition::getInheritableMembers() const
 {
 	if (!m_inheritableMembers)
@@ -426,7 +447,14 @@ void InheritanceSpecifier::checkTypeRequirements()
 	solAssert(base, "Base contract not available.");
 	TypePointers parameterTypes = ContractType(*base).getConstructorType()->getParameterTypes();
 	if (!m_arguments.empty() && parameterTypes.size() != m_arguments.size())
-		BOOST_THROW_EXCEPTION(createTypeError("Wrong argument count for constructor call."));
+		BOOST_THROW_EXCEPTION(createTypeError(
+			"Wrong argument count for constructor call: " +
+			toString(m_arguments.size()) +
+			" arguments given but expected " +
+			toString(parameterTypes.size()) +
+			"."
+		));
+
 	for (size_t i = 0; i < m_arguments.size(); ++i)
 		if (!m_arguments[i]->getType()->isImplicitlyConvertibleTo(*parameterTypes[i]))
 			BOOST_THROW_EXCEPTION(m_arguments[i]->createTypeError(
@@ -475,7 +503,7 @@ void StructDefinition::checkRecursion() const
 				);
 			}
 	};
-	check(this, {});
+	check(this, StructPointersSet{});
 }
 
 TypePointer EnumDefinition::getType(ContractDefinition const*) const
@@ -629,7 +657,13 @@ void ModifierInvocation::checkTypeRequirements(vector<ContractDefinition const*>
 	if (!parameters)
 		BOOST_THROW_EXCEPTION(createTypeError("Referenced declaration is neither modifier nor base class."));
 	if (parameters->size() != m_arguments.size())
-		BOOST_THROW_EXCEPTION(createTypeError("Wrong argument count for modifier invocation."));
+		BOOST_THROW_EXCEPTION(createTypeError(
+			"Wrong argument count for modifier invocation: " +
+			toString(m_arguments.size()) +
+			" arguments given but expected " +
+			toString(parameters->size()) +
+			"."
+		));
 	for (size_t i = 0; i < m_arguments.size(); ++i)
 		if (!m_arguments[i]->getType()->isImplicitlyConvertibleTo(*(*parameters)[i]->getType()))
 			BOOST_THROW_EXCEPTION(m_arguments[i]->createTypeError(
@@ -750,8 +784,7 @@ void Expression::expectType(Type const& _expectedType)
 			" is not implicitly convertible to expected type " +
 			_expectedType.toString() +
 			"."
-		)
-		);
+		));
 }
 
 void Expression::requireLValue()
@@ -811,17 +844,26 @@ void FunctionCall::checkTypeRequirements(TypePointers const*)
 			BOOST_THROW_EXCEPTION(createTypeError("Exactly one argument expected for explicit type conversion."));
 		if (!isPositionalCall)
 			BOOST_THROW_EXCEPTION(createTypeError("Type conversion cannot allow named arguments."));
-		if (!m_arguments.front()->getType()->isExplicitlyConvertibleTo(*type.getActualType()))
-			BOOST_THROW_EXCEPTION(createTypeError("Explicit type conversion not allowed."));
 		m_type = type.getActualType();
+		auto argType = m_arguments.front()->getType();
+		if (auto argRefType = dynamic_cast<ReferenceType const*>(argType.get()))
+			// do not change the data location when converting
+			// (data location cannot yet be specified for type conversions)
+			m_type = ReferenceType::copyForLocationIfReference(argRefType->location(), m_type);
+		if (!argType->isExplicitlyConvertibleTo(*m_type))
+			BOOST_THROW_EXCEPTION(createTypeError("Explicit type conversion not allowed."));
+
 		return;
 	}
 
+	/// For error message: Struct members that were removed during conversion to memory.
+	set<string> membersRemovedForStructConstructor;
 	if (isStructConstructorCall())
 	{
 		TypeType const& type = dynamic_cast<TypeType const&>(*expressionType);
 		auto const& structType = dynamic_cast<StructType const&>(*type.getActualType());
 		functionType = structType.constructorType();
+		membersRemovedForStructConstructor = structType.membersMissingInMemory();
 	}
 	else
 		functionType = dynamic_pointer_cast<FunctionType const>(expressionType);
@@ -834,7 +876,22 @@ void FunctionCall::checkTypeRequirements(TypePointers const*)
 	// function parameters
 	TypePointers const& parameterTypes = functionType->getParameterTypes();
 	if (!functionType->takesArbitraryParameters() && parameterTypes.size() != m_arguments.size())
-		BOOST_THROW_EXCEPTION(createTypeError("Wrong argument count for function call."));
+	{
+		string msg =
+			"Wrong argument count for function call: " +
+			toString(m_arguments.size()) +
+			" arguments given but expected " +
+			toString(parameterTypes.size()) +
+			".";
+		// Extend error message in case we try to construct a struct with mapping member.
+		if (isStructConstructorCall() && !membersRemovedForStructConstructor.empty())
+		{
+			msg += " Members that have to be skipped in memory:";
+			for (auto const& member: membersRemovedForStructConstructor)
+				msg += " " + member;
+		}
+		BOOST_THROW_EXCEPTION(createTypeError(msg));
+	}
 
 	if (isPositionalCall)
 	{
@@ -953,10 +1010,22 @@ void MemberAccess::checkTypeRequirements(TypePointers const* _argumentTypes)
 				++it;
 	}
 	if (possibleMembers.size() == 0)
+	{
+		auto storageType = ReferenceType::copyForLocationIfReference(
+			DataLocation::Storage,
+			m_expression->getType()
+		);
+		if (!storageType->getMembers().membersByName(*m_memberName).empty())
+			BOOST_THROW_EXCEPTION(createTypeError(
+				"Member \"" + *m_memberName + "\" is not available in " +
+				type.toString() +
+				" outside of storage."
+			));
 		BOOST_THROW_EXCEPTION(createTypeError(
 			"Member \"" + *m_memberName + "\" not found or not visible "
 			"after argument-dependent lookup in " + type.toString()
 		));
+	}
 	else if (possibleMembers.size() > 1)
 		BOOST_THROW_EXCEPTION(createTypeError(
 			"Member \"" + *m_memberName + "\" not unique "
