@@ -10,11 +10,15 @@ if ((NOT EMSCRIPTEN) AND (NOT DEFINED MSVC))
 	eth_use(rlp ${REQUIRED} Utils::secp256k1)
 endif()
 
+
+find_package(Boost QUIET REQUIRED COMPONENTS date_time)
 find_package(Dev)
 
 target_link_libraries(rlp ${Dev_DEVCORE_LIBRARIES})
 target_link_libraries(rlp ${Dev_DEVCRYPTO_LIBRARIES})
-
+if (DEFINED MSVC)
+	target_link_libraries(${TARGET} ${Boost_DATE_TIME_LIBRARIES})
+endif()
 if (UNIX AND NOT APPLE)
 	target_link_libraries(rlp pthread)
 endif()
