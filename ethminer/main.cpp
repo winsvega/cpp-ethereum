@@ -20,23 +20,8 @@
  * Ethereum client.
  */
 
-// Solves the problem of including windows.h before including winsock.h
-// as detailed here:
-// http://stackoverflow.com/questions/1372480/c-redefinition-header-files-winsock2-h
-#if defined(_WIN32)
-#define _WINSOCKAPI_
-#include <windows.h>
-#endif
-
-#include <thread>
-#include <chrono>
-#include <fstream>
-#include <iostream>
-#include <signal.h>
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/trim_all.hpp>
-#include <libdevcore/FileSystem.h>
 #include "MinerAux.h"
+
 using namespace std;
 using namespace dev;
 using namespace dev::eth;
