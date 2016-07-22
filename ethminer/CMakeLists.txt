@@ -10,8 +10,13 @@ eth_use(ethminer REQUIRED JsonRpc::Client)
 jsonrpcstub_client_create(ethminer minerfarm.json FarmClient ${CMAKE_CURRENT_SOURCE_DIR} FarmClient)
 jsonrpcstub_client_create(ethminer minerphonehome.json PhoneHome ${CMAKE_CURRENT_SOURCE_DIR} PhoneHome)
 
+find_package(Boost QUIET REQUIRED COMPONENTS chrono date_time)
 find_package(Eth)
 
+if (DEFINED MSVC)
+	target_link_libraries(ethminer ${Boost_CHRONO_LIBRARIES})
+	target_link_libraries(ethminer ${Boost_DATE_TIME_LIBRARIES})
+endif()
 target_link_libraries(ethminer ${Eth_ETHASHSEAL_LIBRARIES})
 
 if (APPLE)
