@@ -10,6 +10,10 @@
 
 language: cpp
 branches:
+    only:
+        - develop
+        - merge_repos
+        - release
     except:
         - /develop-v[0-9]/
         - /untagged-[0-9]/
