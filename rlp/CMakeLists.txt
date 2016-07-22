@@ -11,12 +11,13 @@ if ((NOT EMSCRIPTEN) AND (NOT DEFINED MSVC))
 endif()
 
 
-find_package(Boost QUIET REQUIRED COMPONENTS date_time)
+find_package(Boost QUIET REQUIRED COMPONENTS chrono date_time)
 find_package(Dev)
 
 target_link_libraries(rlp ${Dev_DEVCORE_LIBRARIES})
 target_link_libraries(rlp ${Dev_DEVCRYPTO_LIBRARIES})
 if (DEFINED MSVC)
+	target_link_libraries(rlp ${Boost_CHRONO_LIBRARIES})
 	target_link_libraries(rlp ${Boost_DATE_TIME_LIBRARIES})
 endif()
 if (UNIX AND NOT APPLE)
