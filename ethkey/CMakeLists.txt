@@ -1,15 +1,16 @@
 aux_source_directory(. SRC_LIST)
-
-set(EXECUTABLE ethkey)
+include_directories(..)
 
 file(GLOB HEADERS "*.h")
 
-add_executable(${EXECUTABLE} ${SRC_LIST} ${HEADERS})
+add_executable(ethkey ${SRC_LIST} ${HEADERS})
 
-eth_use(${EXECUTABLE} REQUIRED Dev::devcore Eth::ethcore Eth::devcrypto)
+find_package(Eth)
+
+target_link_libraries(ethkey ${Eth_ETHCORE_LIBRARIES})
 
 if (APPLE)
-	install(TARGETS ${EXECUTABLE} DESTINATION bin)
+	install(TARGETS ethkey DESTINATION bin)
 else()
-	eth_install_executable(${EXECUTABLE})
+	eth_install_executable(ethkey)
 endif()

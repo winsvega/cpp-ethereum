@@ -1,13 +1,10 @@
 aux_source_directory(. SRC_LIST)
-
-set(EXECUTABLE evmcore)
+include_directories(..)
 
 file(GLOB HEADERS "*.h")
 
-add_library(${EXECUTABLE} ${SRC_LIST} ${HEADERS})
+add_library(evmcore ${SRC_LIST} ${HEADERS})
 
-eth_use(${EXECUTABLE} REQUIRED Dev::devcore)
-
-install( TARGETS ${EXECUTABLE} RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib )
-install( FILES ${HEADERS} DESTINATION include/${EXECUTABLE} )
+install(TARGETS evmcore RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
+install(FILES ${HEADERS} DESTINATION include/evmcore)
 

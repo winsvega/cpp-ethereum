@@ -1,14 +1,23 @@
 aux_source_directory(. SRC_LIST)
+include_directories(..)
+include_directories(../utils)
 
-set(EXECUTABLE rlp)
+add_executable(rlp ${SRC_LIST})
 
-add_executable(${EXECUTABLE} ${SRC_LIST})
+eth_use(rlp REQUIRED Cryptopp)
 
-eth_use(${EXECUTABLE} REQUIRED Dev::devcrypto)
+if ((NOT EMSCRIPTEN) AND (NOT DEFINED MSVC))
+	eth_use(rlp ${REQUIRED} Utils::secp256k1)
+endif()
+
+find_package(Dev)
+
+target_link_libraries(rlp ${Dev_DEVCORE_LIBRARIES})
+target_link_libraries(rlp ${Dev_DEVCRYPTO_LIBRARIES})
 
 if (APPLE)
-	install(TARGETS ${EXECUTABLE} DESTINATION bin)
+	install(TARGETS rlp DESTINATION bin)
 else()
-	eth_install_executable(${EXECUTABLE})
+	eth_install_executable(rlp)
 endif()
 
