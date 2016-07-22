@@ -6,7 +6,7 @@ file(GLOB HEADERS "*.h")
 add_library(evmcore ${SRC_LIST} ${HEADERS})
 
 find_package(Boost QUIET REQUIRED)
-target_include_directories(devcore SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
+target_include_directories(evmcore SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
 
 install(TARGETS evmcore RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(FILES ${HEADERS} DESTINATION include/evmcore)
