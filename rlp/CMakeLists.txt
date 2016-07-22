@@ -15,6 +15,10 @@ find_package(Dev)
 target_link_libraries(rlp ${Dev_DEVCORE_LIBRARIES})
 target_link_libraries(rlp ${Dev_DEVCRYPTO_LIBRARIES})
 
+if (UNIX AND NOT APPLE)
+	target_link_libraries(rlp pthread)
+endif()
+
 if (APPLE)
 	install(TARGETS rlp DESTINATION bin)
 else()
