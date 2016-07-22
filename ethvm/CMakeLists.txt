@@ -1,13 +1,15 @@
 aux_source_directory(. SRC_LIST)
+include_directories(..)
 
-set(EXECUTABLE ethvm)
+add_executable(ethvm ${SRC_LIST})
 
-add_executable(${EXECUTABLE} ${SRC_LIST})
+find_package(Eth)
 
-eth_use(${EXECUTABLE} REQUIRED Eth::ethereum Eth::ethashseal)
+target_link_libraries(ethvm ${Eth_ETHASH_LIBRARIES})
+target_link_libraries(ethvm ${Eth_ETHASHSEAL_LIBRARIES})
 
 if (APPLE)
-	install(TARGETS ${EXECUTABLE} DESTINATION bin)
+	install(TARGETS ethvm DESTINATION bin)
 else()
-	eth_install_executable(${EXECUTABLE})
+	eth_install_executable(ethvm)
 endif()

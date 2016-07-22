@@ -40,7 +40,6 @@
 import os
 import re
 
-assignmentPattern = "(set|eth_name)\((EXECUTABLE|LIBRARY) (.*)\)"
 dependencyPattern = "eth_use\((.*)\s+(OPTIONAL|REQUIRED)\s+(.*)\)"
 
 
@@ -53,17 +52,11 @@ def getDependencyEdges(submodulePath, library):
     outputString = ""
 
     if os.path.exists(cmakeListsPath):
-        executable = ""
         with open(cmakeListsPath) as fileHandle:
             for line in fileHandle.readlines():
-                result = re.search(assignmentPattern, line)
-                if result:
-                    executable = result.group(3)
                 result = re.search(dependencyPattern, line)
                 if result:
                     fromNode = result.group(1)
-                    if fromNode == "${EXECUTABLE}":
-                        fromNode = executable
                     toNodes = result.group(3).split()
                     for toNode in toNodes:
                         # Merge all JsonRpc::* nodes to simplify the output graph.
@@ -91,14 +84,35 @@ def getLibraryAndApplicationNames(submodulePath):
                 cmakeListsPath = os.path.join(absSubDirectoryPath,
                                             "CMakeLists.txt")
                 if os.path.exists(cmakeListsPath):
-                    moduleName = ""
-                    with open(cmakeListsPath) as fileHandle:
-                        for line in fileHandle.readlines():
-                            result = re.search(assignmentPattern, line)
-                            if result:
-                                moduleName = result.group(3)
-                    if (moduleName == ""):
-                        moduleName = subDirectoryName
+                    moduleName = subDirectoryName
+                    
+                    if (moduleName == "libdevcore"):
+                        moduleName = "devcore"
+                    if (moduleName == "libdevcrypto"):
+                        moduleName = "devcrypto"
+                    if (moduleName == "libethash"):
+                        moduleName = "ethash"
+                    if (moduleName == "libethash-cl"):
+                        moduleName = "ethash-cl"
+                    if (moduleName == "libethashseal"):
+                        moduleName = "ethashseal"
+                    if (moduleName == "libethcore"):
+                        moduleName = "ethcore"
+                    if (moduleName == "libethereum"):
+                        moduleName = "ethereum"
+                    if (moduleName == "libevm"):
+                        moduleName = "evm"
+                    if (moduleName == "libevmcore"):
+                        moduleName = "evmcore"
+                    if (moduleName == "libp2p"):
+                        moduleName = "p2p"
+                    if (moduleName == "libwebthree"):
+                        moduleName = "webthree"
+                    if (moduleName == "libweb3jsonrpc"):
+                        moduleName = "web3jsonrpc"
+                    if (moduleName == "libwhisper"):
+                        moduleName = "whisper"
+
                     outputString = outputString + '    "' + moduleName + '"'
                     
                     if ("lib" in absSubDirectoryPath or (moduleName == "evmjit")):
@@ -128,18 +142,27 @@ print ''
 print '    "buildinfo" [style=filled,fillcolor=deepskyblue]'
 print '    "base" [style=filled,fillcolor=deepskyblue]'
 print '    "json_spirit" [color=red]'
-print '    "libevmjit" [style=filled,fillcolor=LavenderBlush]'
+print '    "libevmjit" [style=filled,fillcolor=coral]'
 print '    "scrypt" [color=red]'
 print '    "secp256k1" [color=red]'
+print '    "testeth" [shape=box;style=filled,penwidth=2,fillcolor=chartreuse]'
+print '    "testweb3" [shape=box;style=filled,penwidth=2,fillcolor=chartreuse]'
+print '    "testweb3core" [shape=box;style=filled,penwidth=2,fillcolor=chartreuse]'
 print ''
-print '    "base" -> "boost"'
-print '    "base" -> "json_spirit"'
-print '    "base" -> "LevelDB"'
 print '    "base" -> "pthreads" [style=dotted]'
 print '    "curl" -> "ssh2"  [style=dotted]'
 print '    "curl" -> "openssl"  [style=dotted]'
 print '    "curl" -> "zlib"  [style=dotted]'
+print '    "devcore" -> "boost::filesystem"'
+print '    "devcore" -> "boost::random"'
+print '    "devcore" -> "boost::system"'
+print '    "devcore" -> "boost::thread"'
+print '    "devcrypto" -> "devcore"'
+print '    "devcrypto" -> "json_spirit"'
+print '    "ethcore" -> "json_spirit"'
+print '    "ethereum" -> "boost::regex"'
 print '    "ethereum" -> "libevmjit" [style=dotted]'
+print '    "ethereum" -> "json_spirit"'
 print '    "json-rpc-cpp" -> "curl"'
 print '    "json-rpc-cpp" -> "microhttpd"'
 print '    "json-rpc-cpp" -> "Jsoncpp"'
@@ -147,7 +170,21 @@ print '    "json-rpc-cpp" -> "argtable2" [style=dotted]'
 print '    "LevelDB" -> "snappy" [style=dotted]'
 print '    "libevmjit" -> "libedit"'
 print '    "libevmjit" -> "llvm"'
+print '    "p2p" -> "devcrypto"'
+print '    "rlp" -> "json_spirit"'
 print '    "secp256k1" -> "gmp"'
+print '    "testeth" -> "ethashseal"'
+print '    "testeth" -> "boost::unit_test_framework"'
+print '    "testweb3" -> "boost::unit_test_framework"'
+print '    "testweb3" -> "web3jsonrpc"'
+print '    "testweb3core" -> "boost::date_time"'
+print '    "testweb3core" -> "boost::regex"'
+print '    "testweb3core" -> "boost::unit_test_framework"'
+print '    "testweb3core" -> "devcore"'
+print '    "testweb3core" -> "devcrypto"'
+print '    "testweb3core" -> "p2p"'
+
+print '    "whisper" -> "boost::regex"'
 print ''
 
 processRepository('../..')

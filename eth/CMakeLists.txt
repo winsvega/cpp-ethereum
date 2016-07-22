@@ -1,16 +1,28 @@
 aux_source_directory(. SRC_LIST)
-
-set(EXECUTABLE eth)
+include_directories(..)
 
 file(GLOB HEADERS "*.h")
 
-eth_simple_add_executable(${EXECUTABLE} ${SRC_LIST} ${HEADERS})
+eth_simple_add_executable(eth ${SRC_LIST} ${HEADERS})
 
-eth_use(${EXECUTABLE} REQUIRED Web3::web3jsonrpc JsonRpc::Client Web3::webthree Eth::ethcore Eth::p2p Eth::devcrypto Eth::ethereum Eth::ethashseal)
-eth_use(${EXECUTABLE} OPTIONAL Eth::evmjit)
+eth_use(eth REQUIRED JsonRpc::Client)
+
+find_package(Eth)
+find_package(Web3)
+
+target_link_libraries(eth ${Eth_EVM_LIBRARIES})
+target_link_libraries(eth ${Web3_WEB3JSONRPC_LIBRARIES})
+target_link_libraries(eth ${Web3_WEBTHREE_LIBRARIES})
+if (EVMJIT)
+	target_link_libraries(eth ${Eth_EVMJIT_LIBRARIES})
+endif()
+
+if (EVMJIT)
+	eth_copy_dlls(eth EVMJIT_DLLS)
+endif()
 
 if (APPLE)
-	install(TARGETS ${EXECUTABLE} DESTINATION bin)
+	install(TARGETS eth DESTINATION bin)
 else()
-	eth_install_executable(${EXECUTABLE})
+	eth_install_executable(eth)
 endif()
