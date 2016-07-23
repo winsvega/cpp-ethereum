@@ -23,31 +23,24 @@
  */
 
 #include <boost/algorithm/string/case_conv.hpp>
-
 #include <libdevcore/CommonJS.h>
-#include <libevmcore/Instruction.h>
 #include <libethcore/BasicAuthority.h>
 #include <libethcore/Exceptions.h>
-#include <libethashseal/EthashAux.h>
 #include <libethashseal/EthashGPUMiner.h>
 #include <libethashseal/EthashCPUMiner.h>
-#include <libethashseal/Ethash.h>
 
 #if ETH_ETHASHCL
-#include <libethash-cl/ethash_cl_miner.h>
+	#include <libethash-cl/ethash_cl_miner.h>
 #endif // ETH_ETHASHCL
 
 #if ETH_JSONRPC
-#include <jsonrpccpp/server/connectors/httpserver.h>
-#include <jsonrpccpp/client/connectors/httpclient.h>
+	#include <jsonrpccpp/server/connectors/httpserver.h>
+	#include <jsonrpccpp/client/connectors/httpclient.h>
+	#include "PhoneHome.h"
+	#include "FarmClient.h"
 #endif // ETH_JSONRPC
 
 #include "cpp-ethereum/BuildInfo.h"
-
-#if ETH_JSONRPC
-#include "PhoneHome.h"
-#include "FarmClient.h"
-#endif // ETH_JSONRPC
 
 #undef RETURN
 
