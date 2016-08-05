@@ -5,6 +5,22 @@
 #
 # http://www.ethdocs.org/en/latest/ethereum-clients/cpp-ethereum/
 #
+# ------------------------------------------------------------------------------
+# This file is part of cpp-ethereum.
+#
+# cpp-ethereum is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cpp-ethereum is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with cpp-ethereum.  If not, see <http://www.gnu.org/licenses/>
+#
 # (c) 2016 cpp-ethereum contributors.
 #------------------------------------------------------------------------------
 
@@ -17,6 +33,7 @@ branches:
         - release
     except:
         - /develop-v[0-9]/
+        - /untagged/
 matrix:
     include:
         - os: linux
@@ -32,18 +49,6 @@ matrix:
               - TRAVIS_BUILD_TYPE=RelWithDebInfo
               - ZIP_SUFFIX=osx-mavericks
               - TESTS=On
-        - os: osx
-          osx_image: xcode7.1
-          env:
-              - TRAVIS_BUILD_TYPE=RelWithDebInfo
-              - ZIP_SUFFIX=osx-yosemite
-              - TESTS=On
-        - os: osx
-          osx_image: xcode7.3
-          env:
-              - TRAVIS_BUILD_TYPE=RelWithDebInfo
-              - ZIP_SUFFIX=osx-elcapitan
-              - TESTS=Off
 git:
     depth: 2
 cache:
@@ -59,12 +64,27 @@ before_script:
     - ../scripts/release.sh $ZIP_SUFFIX $TESTS
 script:
     - cd $TRAVIS_BUILD_DIR/..
-    #- git clone https://github.com/ethereum/tests.git
-    #- export ETHEREUM_TEST_PATH=$(pwd)/tests/
-    #- cd $TRAVIS_BUILD_DIR/build
-    #- ./test/libethereum/test/testeth
-    #- ./test/libweb3core/test/testweb3core
-    #- ./test/webthree/test/testweb3    
+    - git clone https://github.com/ethereum/tests.git
+    - export ETHEREUM_TEST_PATH=$(pwd)/tests/
+    - cd $TRAVIS_BUILD_DIR/build
+
+    # Workaround for fairly frequent timeout issue, as shown here, is to prepend
+    # 'travis_wait' to your long-running command, which tells TravisCI not to panic
+    # if a specific command does not update STDOUT for 20 minutes.   Unsure at the
+    # time of writing whether this will actually help anything, or whether this STDOUT
+    # stall actually represents a real crash or hang.
+    #
+    # 'No output has been received in the last 10 minutes, this potentially indicates a stalled
+    # build or something wrong with the build itself'
+    #
+    # See https://travis-ci.org/bobsummerwill/cpp-ethereum/jobs/148445495 for an instance
+    # of this problem actually happening within a TravisCI automation step.
+    #
+    # See http://stackoverflow.com/questions/28746046/how-can-i-install-something-on-travis-ci-without-a-timeout/28833319#28833319
+
+    - travis_wait ./test/libethereum/test/testeth
+    - ./test/libweb3core/test/testweb3core
+    - ./test/webthree/test/testweb3    
 deploy:
     provider: releases
     api_key:
