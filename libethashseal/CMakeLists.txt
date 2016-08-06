@@ -21,5 +21,4 @@ if (ETHASHCL)
 endif()
 
 install(TARGETS ethashseal RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include/ethashseal)
 

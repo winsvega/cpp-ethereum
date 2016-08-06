@@ -72,6 +72,5 @@ find_package(Web3)
 target_link_libraries(web3jsonrpc ${Web3_WEBTHREE_LIBRARIES})
 target_link_libraries(web3jsonrpc ${Web3_WHISPER_LIBRARIES})
 
-install(TARGETS web3jsonrpc RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib )
-install(FILES ${HEADERS} DESTINATION include/web3jsonrpc)
+install(TARGETS web3jsonrpc RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 

@@ -18,5 +18,3 @@ target_link_libraries(webthree ${Eth_ETHASHSEAL_LIBRARIES})
 target_link_libraries(webthree ${Web3_WHISPER_LIBRARIES})
 
 install(TARGETS webthree RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include/webthree)
-

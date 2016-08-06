@@ -18,5 +18,3 @@ if (NOT EMSCRIPTEN)
 endif ()
 
 install(TARGETS devcrypto RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include/devcrypto)
-

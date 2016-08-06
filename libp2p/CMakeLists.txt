@@ -15,5 +15,3 @@ target_link_libraries(p2p ${Dev_DEVCORE_LIBRARIES})
 target_link_libraries(p2p ${Dev_DEVCRYPTO_LIBRARIES})
 
 install(TARGETS p2p RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include/p2p)
-

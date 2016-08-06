@@ -30,5 +30,4 @@ find_package(Eth)
 
 target_link_libraries(ethash-cl ${Eth_ETHASH_LIBRARIES})
 
-install(TARGETS ethash-cl RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib )
-install(FILES ${HEADERS} DESTINATION include/ethash-cl)
+install(TARGETS ethash-cl RUNTIME DESTINATION bin ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
