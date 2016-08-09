@@ -1,4 +1,6 @@
 aux_source_directory(. SRC_LIST)
+enable_unity_build(web3jsonrpc SRC_LIST)
+
 include_directories(..)
 
 file(GLOB HEADERS "*.h")

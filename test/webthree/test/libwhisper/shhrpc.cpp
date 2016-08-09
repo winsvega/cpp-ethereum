@@ -37,7 +37,7 @@
 #include <jsonrpccpp/server/connectors/httpserver.h>
 #include <jsonrpccpp/client/connectors/httpclient.h>
 #include <json_spirit/JsonSpiritHeaders.h>
-#include <test/TestHelper.h>
+//#include <test/TestHelper.h>
 #include <test/libweb3jsonrpc/WebThreeStubClient.h>
 #include <libethcore/KeyManager.h>
 #include <libp2p/Common.h>
@@ -101,7 +101,7 @@ struct Setup: public TestOutputHelper
 		dev::p2p::NodeIPEndpoint::test_allowLocal = false;
 	}
 
-	TestOutputHelper testHelper;
+	//TestOutputHelper testHelper;
 };
 
 Json::Value createMessage(string const& _from, string const& _to, string const& _topic = "", string _payload = "")

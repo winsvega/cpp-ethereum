@@ -15,6 +15,9 @@ add_subdirectory(libdevcrypto)
 add_subdirectory(libp2p)
 
 set(SRC_LIST ${SRC_LIST} ${SRCTEST})
+enable_unity_build(testweb3core SRC_LIST)
+
+
 file(GLOB HEADERS "*.h")
 
 add_executable(testweb3core ${SRC_LIST} ${HEADERS})

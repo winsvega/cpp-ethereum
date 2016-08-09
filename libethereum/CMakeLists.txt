@@ -4,6 +4,8 @@ include_directories(..)
 include_directories(../utils)
 
 aux_source_directory(. SRC_LIST)
+enable_unity_build(ethereum SRC_LIST)
+
 
 file(GLOB HEADERS "*.h")
 

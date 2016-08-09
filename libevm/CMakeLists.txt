@@ -14,6 +14,9 @@ if (EVMJIT)
 	)
 endif()
 
+enable_unity_build(evm SOURCES)
+
+
 include_directories(..)
 if (EVMJIT)
 	include_directories(../evmjit/include)

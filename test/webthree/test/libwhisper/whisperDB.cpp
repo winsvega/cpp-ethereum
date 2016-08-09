@@ -33,7 +33,7 @@ along with cpp-ethereum.  If not, see <http://www.gnu.org/licenses/>.
 #include <libp2p/Host.h>
 #include <libwhisper/WhisperDB.h>
 #include <libwhisper/WhisperHost.h>
-#include <test/TestHelper.h>
+//#include <test/TestHelper.h>
 
 using namespace std;
 using namespace dev;
@@ -45,7 +45,7 @@ struct P2PFixture: public TestOutputHelper
 {
 	P2PFixture() { dev::p2p::NodeIPEndpoint::test_allowLocal = true; }
 	~P2PFixture() { dev::p2p::NodeIPEndpoint::test_allowLocal = false; }
-	TestOutputHelper testHelper;
+	//TestOutputHelper testHelper;
 };
 
 BOOST_FIXTURE_TEST_SUITE(whisperDB, P2PFixture)
