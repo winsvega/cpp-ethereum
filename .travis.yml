@@ -27,6 +27,7 @@
 language: cpp
 branches:
     only:
+        - bulk_build_support
         - cmake_fixes
         - develop
         - merge_repos
