@@ -1,5 +1,5 @@
 aux_source_directory(. SRC_LIST)
-enable_unity_build(devcrypto SRC_LIST)
+enable_bulkbuild(devcrypto SRC_LIST)
 
 
 include_directories(..)

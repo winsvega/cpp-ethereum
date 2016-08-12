@@ -39,7 +39,7 @@ foreach(file ${SRC_LIST})
 	endforeach(test_raw)
 endforeach(file)
 
-enable_unity_build(testeth SRC_LIST)
+enable_bulkbuild(testeth SRC_LIST)
 
 file(GLOB HEADERS "*.h")
 add_executable(testeth ${SRC_LIST} ${HEADERS})

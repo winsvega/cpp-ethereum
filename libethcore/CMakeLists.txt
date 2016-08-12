@@ -1,5 +1,5 @@
 aux_source_directory(. SRC_LIST)
-enable_unity_build(ethcore SRC_LIST)
+enable_bulkbuild(ethcore SRC_LIST)
 
 include_directories(..)
 include_directories(../utils)

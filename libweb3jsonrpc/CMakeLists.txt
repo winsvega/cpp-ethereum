@@ -1,5 +1,5 @@
 aux_source_directory(. SRC_LIST)
-enable_unity_build(web3jsonrpc SRC_LIST)
+enable_bulkbuild(web3jsonrpc SRC_LIST)
 
 include_directories(..)
 

@@ -1,5 +1,5 @@
 aux_source_directory(. SRC_LIST)
-enable_unity_build(ethashseal SRC_LIST)
+enable_bulkbuild(ethashseal SRC_LIST)
 
 include_directories(..)
 

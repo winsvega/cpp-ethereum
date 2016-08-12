@@ -14,8 +14,15 @@ if (EVMJIT)
 	)
 endif()
 
-enable_unity_build(evm SOURCES)
-
+# We are deliberately NOT supporting BulkBuild for libevm, because
+# some of Greg Colvin's EVM optimizations explicitly depend on the
+# compilation unit boundaries which we deliberately put in place with
+# the creation of VMNoInline.cpp.
+#
+# As-and-when we add the ability to control BulkBuild unit boundaries
+# better we could add BulkBuild support - but with that compilation
+# unit excluded from the BulkBuild unit.
+#enable_bulkbuild(evm SOURCES)
 
 include_directories(..)
 if (EVMJIT)

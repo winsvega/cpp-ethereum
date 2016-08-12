@@ -15,8 +15,14 @@ add_subdirectory(libdevcrypto)
 add_subdirectory(libp2p)
 
 set(SRC_LIST ${SRC_LIST} ${SRCTEST})
-enable_unity_build(testweb3core SRC_LIST)
 
+# We are intentionally NOT supporting BulkBuild for testweb3core at
+# the time of writing, because it results in link errors related to
+# Boost unit-tests, around the BOOST_TEST_MODULE symbol.  We need
+# seperate compilation units for the linkage to work.  No doubt
+# some further attention could address this problem.   Just haven't
+# had time, and it isn't an urgent need.
+#enable_bulkbuild(testweb3core SRC_LIST)
 
 file(GLOB HEADERS "*.h")
 

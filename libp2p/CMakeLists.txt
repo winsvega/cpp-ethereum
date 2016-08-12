@@ -1,7 +1,7 @@
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSTATICLIB")
 
 aux_source_directory(. SRC_LIST)
-enable_unity_build(p2p SRC_LIST)
+enable_bulkbuild(p2p SRC_LIST)
 
 include_directories(..)
 
