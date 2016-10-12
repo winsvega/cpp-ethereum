@@ -35,6 +35,7 @@ struct EVMSchedule
 	EVMSchedule(bool _efcd, bool _hdc, unsigned const& _txCreateGas): exceptionalFailedCodeDeposit(_efcd), haveDelegateCall(_hdc), tierStepGas(std::array<unsigned, 8>{{0, 2, 3, 5, 8, 10, 20, 0}}), txCreateGas(_txCreateGas) {}
 	bool exceptionalFailedCodeDeposit = true;
 	bool haveDelegateCall = true;
+    bool staticCallDepthLimit = true;
 	unsigned stackLimit = 1024;
 	std::array<unsigned, 8> tierStepGas;
 	unsigned expGas = 10;
@@ -69,8 +70,6 @@ struct EVMSchedule
 	unsigned extcodecopyGas = 20;
 	unsigned balanceGas = 20;
 	unsigned suicideGas = 0;
-
-	bool isEIP150() const { return callGas == 700; }
 };
 
 static const EVMSchedule DefaultSchedule = EVMSchedule();
@@ -80,14 +79,15 @@ static const EVMSchedule HomesteadSchedule = EVMSchedule(true, true, 53000);
 static EVMSchedule EVMScheduleEIP150()
 {
 	//EIP150
-	EVMSchedule m_schedule = HomesteadSchedule;
-	m_schedule.extcodesizeGas = 700;
-	m_schedule.extcodecopyGas = 700;
-	m_schedule.balanceGas = 400;
-	m_schedule.sloadGas = 200;
-	m_schedule.callGas = 700;
-	m_schedule.suicideGas = 5000;
-	return m_schedule;
+	EVMSchedule schedule = HomesteadSchedule;
+    schedule.staticCallDepthLimit = false;
+	schedule.extcodesizeGas = 700;
+	schedule.extcodecopyGas = 700;
+	schedule.balanceGas = 400;
+	schedule.sloadGas = 200;
+	schedule.callGas = 700;
+	schedule.suicideGas = 5000;
+	return schedule;
 }
 
 static const EVMSchedule DevconSchedule = EVMScheduleEIP150();

@@ -109,13 +109,13 @@ void VM::caseCreate()
 	uint64_t initOff = (uint64_t)*m_sp--;
 	uint64_t initSize = (uint64_t)*m_sp--;
 
-	bool depthOk = m_schedule->isEIP150() ? true : m_ext->depth < 1024;
+	bool depthOk = m_schedule->staticCallDepthLimit ? m_ext->depth < 1024 : true;
 	if (m_ext->balance(m_ext->myAddress) >= endowment && depthOk)
 	{
-		auto createGas = *m_io_gas;
-		if (m_schedule->isEIP150())
+		u256 createGas = *m_io_gas;
+		if (!m_schedule->staticCallDepthLimit)
 			createGas -= createGas / 64;
-		auto gas = createGas;
+		u256 gas = createGas;
 		*++m_sp = (u160)m_ext->create(endowment, gas, bytesConstRef(m_mem.data() + initOff, initSize), *m_onOp);
 		*m_io_gas -= (createGas - gas);
 	}
@@ -152,11 +152,12 @@ bool VM::caseCallSetup(CallParameters *callParams)
 	updateMem();
 	updateIOGas();
 
-	// "Static" const already applied. Calculate call gas.
-	auto requestedCallGas = *m_sp;
-	auto maxAllowedCallGas = *m_io_gas - *m_io_gas / 64;
-	auto callGas = m_schedule->isEIP150() ? std::min(requestedCallGas, maxAllowedCallGas)
-			: requestedCallGas;
+	// "Static" costs already applied. Calculate call gas.
+	u256 requestedCallGas = *m_sp;
+	u256 maxAllowedCallGas = *m_io_gas - *m_io_gas / 64;
+	u256 callGas = m_schedule->staticCallDepthLimit
+	               ? requestedCallGas
+	               : std::min(requestedCallGas, maxAllowedCallGas);
 	m_runGas = toUint64(callGas);
 	onOperation();
 	updateIOGas();
@@ -185,7 +186,7 @@ bool VM::caseCallSetup(CallParameters *callParams)
 	uint64_t outOff = (uint64_t)*m_sp--;
 	uint64_t outSize = (uint64_t)*m_sp--;
 
-	bool depthOk = m_schedule->isEIP150() ? true : m_ext->depth < 1024;
+	bool depthOk = m_schedule->staticCallDepthLimit ? m_ext->depth < 1024 : true;
 	if (m_ext->balance(m_ext->myAddress) >= callParams->valueTransfer && depthOk)
 	{
 		callParams->onOp = *m_onOp;
