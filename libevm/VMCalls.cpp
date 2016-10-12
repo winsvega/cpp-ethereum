@@ -104,13 +104,21 @@ void VM::caseCreate()
 	updateMem();
 	onOperation();
 	updateIOGas();
-	
+
 	auto const& endowment = *m_sp--;
 	uint64_t initOff = (uint64_t)*m_sp--;
 	uint64_t initSize = (uint64_t)*m_sp--;
-	
-	if (m_ext->balance(m_ext->myAddress) >= endowment && m_ext->depth < 1024)
-		*++m_sp = (u160)m_ext->create(endowment, *m_io_gas, bytesConstRef(m_mem.data() + initOff, initSize), *m_onOp);
+
+	bool depthOk = m_schedule->isEIP150() ? true : m_ext->depth < 1024;
+	if (m_ext->balance(m_ext->myAddress) >= endowment && depthOk)
+	{
+		auto createGas = *m_io_gas;
+		if (m_schedule->isEIP150())
+			createGas -= createGas / 64;
+		auto gas = createGas;
+		*++m_sp = (u160)m_ext->create(endowment, gas, bytesConstRef(m_mem.data() + initOff, initSize), *m_onOp);
+		*m_io_gas -= (createGas - gas);
+	}
 	else
 		*++m_sp = 0;
 }
