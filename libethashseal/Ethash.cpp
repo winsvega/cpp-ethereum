@@ -84,8 +84,8 @@ StringHashMap Ethash::jsInfo(BlockHeader const& _bi) const
 
 EVMSchedule const& Ethash::evmSchedule(EnvInfo const& _envInfo) const
 {
-	if (_envInfo.number() >= chainParams().u256Param("EIP150forkBlock"))
-		return DevconSchedule;
+	if (_envInfo.number() >= chainParams().u256Param("EIP150ForkBlock"))
+		return EIP150Schedule;
 	else
 		if (_envInfo.number() >= chainParams().u256Param("frontierCompatibilityModeLimit"))
 			return HomesteadSchedule;

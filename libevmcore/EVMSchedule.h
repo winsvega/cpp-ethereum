@@ -79,7 +79,7 @@ static const EVMSchedule DefaultSchedule = EVMSchedule();
 static const EVMSchedule FrontierSchedule = EVMSchedule(false, false, 21000);
 static const EVMSchedule HomesteadSchedule = EVMSchedule(true, true, 53000);
 
-static EVMSchedule EVMScheduleEIP150()
+static const EVMSchedule EIP150Schedule = []
 {
 	//EIP150
 	EVMSchedule schedule = HomesteadSchedule;
@@ -91,9 +91,7 @@ static EVMSchedule EVMScheduleEIP150()
 	schedule.callGas = 700;
 	schedule.suicideGas = 5000;
 	return schedule;
-}
-
-static const EVMSchedule DevconSchedule = EVMScheduleEIP150();
+}();
 
 }
 }
