@@ -191,7 +191,7 @@ void VM::interpretCases()
 
 			// After EIP150 hard fork charge additional cost of sending
 			// ethers to non-existing account.
-			if (!m_schedule->staticCallDepthLimit && !m_ext->exists(dest))
+			if (m_schedule->suicideChargesNewAccountGas() && !m_ext->exists(dest))
 				m_runGas += m_schedule->callNewAccountGas;
 
 			onOperation();
