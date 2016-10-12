@@ -70,6 +70,7 @@ struct EVMSchedule
 	unsigned balanceGas = 20;
 	unsigned suicideGas = 0;
 
+	bool isEIP150() const { return callGas == 700; }
 };
 
 static const EVMSchedule DefaultSchedule = EVMSchedule();

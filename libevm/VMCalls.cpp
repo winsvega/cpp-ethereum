@@ -128,7 +128,7 @@ void VM::caseCall()
 
 bool VM::caseCallSetup(CallParameters *callParams)
 {
-	m_runGas = toUint64(u512(*m_sp) + m_schedule->callGas);
+	m_runGas = toUint64(m_schedule->callGas);
 
 	if (m_op == Instruction::CALL && !m_ext->exists(asAddress(*(m_sp - 1))))
 		m_runGas += toUint64(m_schedule->callNewAccountGas);
@@ -142,10 +142,18 @@ bool VM::caseCallSetup(CallParameters *callParams)
 		memNeed(m_stack[(1 + m_sp - m_stack) - sizesOffset], m_stack[(1 + m_sp - m_stack) - sizesOffset - 1])
 	);
 	updateMem();
+	updateIOGas();
+
+	// "Static" const already applied. Calculate call gas.
+	auto requestedCallGas = *m_sp;
+	auto maxAllowedCallGas = *m_io_gas - *m_io_gas / 64;
+	auto callGas = m_schedule->isEIP150() ? std::min(requestedCallGas, maxAllowedCallGas)
+			: requestedCallGas;
+	m_runGas = toUint64(callGas);
 	onOperation();
 	updateIOGas();
 
-	callParams->gas = *m_sp;
+	callParams->gas = callGas;
 	if (m_op != Instruction::DELEGATECALL && *(m_sp - 2) > 0)
 		callParams->gas += m_schedule->callStipend;
 	--m_sp;
@@ -169,7 +177,8 @@ bool VM::caseCallSetup(CallParameters *callParams)
 	uint64_t outOff = (uint64_t)*m_sp--;
 	uint64_t outSize = (uint64_t)*m_sp--;
 
-	if (m_ext->balance(m_ext->myAddress) >= callParams->valueTransfer && m_ext->depth < 1024)
+	bool depthOk = m_schedule->isEIP150() ? true : m_ext->depth < 1024;
+	if (m_ext->balance(m_ext->myAddress) >= callParams->valueTransfer && depthOk)
 	{
 		callParams->onOp = *m_onOp;
 		callParams->senderAddress = m_op == Instruction::DELEGATECALL ? m_ext->caller : m_ext->myAddress;
