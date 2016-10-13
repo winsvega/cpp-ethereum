@@ -153,15 +153,20 @@ bool VM::caseCallSetup(CallParameters *callParams)
 	updateIOGas();
 
 	// "Static" costs already applied. Calculate call gas.
-	u256 requestedCallGas = *m_sp;
-	u256 maxAllowedCallGas = *m_io_gas - *m_io_gas / 64;
-	u256 callGas = m_schedule->staticCallDepthLimit() ? requestedCallGas :
-	               std::min(requestedCallGas, maxAllowedCallGas);
-	m_runGas = toUint64(callGas);
+	if (m_schedule->staticCallDepthLimit())
+		// With static call depth limit we just charge the provided gas amount.
+		callParams->gas = *m_sp;
+	else
+	{
+		// Apply "all but one 64th" rule.
+		u256 maxAllowedCallGas = *m_io_gas - *m_io_gas / 64;
+		callParams->gas = std::min(*m_sp, maxAllowedCallGas);
+	}
+
+	m_runGas = toUint64(callParams->gas);
 	onOperation();
 	updateIOGas();
 
-	callParams->gas = callGas;
 	if (m_op != Instruction::DELEGATECALL && *(m_sp - 2) > 0)
 		callParams->gas += m_schedule->callStipend;
 	--m_sp;
