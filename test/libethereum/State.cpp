@@ -97,6 +97,22 @@ void doStateTests(json_spirit::mValue& _v, bool _fillin)
 }
 } }// Namespace Close
 
+BOOST_AUTO_TEST_SUITE(StateTestsEIP)
+
+BOOST_AUTO_TEST_CASE(stEIP150Test)
+{
+	dev::test::executeTests("stEIPSpecificTest", "/StateTests/EIP150",dev::test::getFolder(__FILE__) + "/StateTestsFiller/EIP150", dev::test::doStateTests);
+}
+
+BOOST_AUTO_TEST_CASE(stMemExpandingEIPCalls)
+{
+	dev::test::executeTests("stMemExpandingEIPCalls", "/StateTests/EIP150",dev::test::getFolder(__FILE__) + "/StateTestsFiller/EIP150", dev::test::doStateTests);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+
+
 
 BOOST_AUTO_TEST_SUITE(StateTests)
 
