@@ -104,6 +104,11 @@ BOOST_AUTO_TEST_CASE(stEIP150Test)
 	dev::test::executeTests("stEIPSpecificTest", "/StateTests/EIP150",dev::test::getFolder(__FILE__) + "/StateTestsFiller/EIP150", dev::test::doStateTests);
 }
 
+BOOST_AUTO_TEST_CASE(stEIPsingleCodeGasPrices)
+{
+	dev::test::executeTests("stEIPsingleCodeGasPrices", "/StateTests/EIP150",dev::test::getFolder(__FILE__) + "/StateTestsFiller/EIP150", dev::test::doStateTests);
+}
+
 BOOST_AUTO_TEST_CASE(stMemExpandingEIPCalls)
 {
 	dev::test::executeTests("stMemExpandingEIPCalls", "/StateTests/EIP150",dev::test::getFolder(__FILE__) + "/StateTestsFiller/EIP150", dev::test::doStateTests);
