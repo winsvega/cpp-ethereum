@@ -109,8 +109,7 @@ void VM::caseCreate()
 	uint64_t initOff = (uint64_t)*m_sp--;
 	uint64_t initSize = (uint64_t)*m_sp--;
 
-	bool depthOk = m_schedule->staticCallDepthLimit() ? m_ext->depth < 1024 : true;
-	if (m_ext->balance(m_ext->myAddress) >= endowment && depthOk)
+	if (m_ext->balance(m_ext->myAddress) >= endowment && m_ext->depth < 1024)
 	{
 		u256 createGas = *m_io_gas;
 		if (!m_schedule->staticCallDepthLimit())
@@ -190,8 +189,7 @@ bool VM::caseCallSetup(CallParameters *callParams)
 	uint64_t outOff = (uint64_t)*m_sp--;
 	uint64_t outSize = (uint64_t)*m_sp--;
 
-	bool depthOk = m_schedule->staticCallDepthLimit() ? m_ext->depth < 1024 : true;
-	if (m_ext->balance(m_ext->myAddress) >= callParams->valueTransfer && depthOk)
+	if (m_ext->balance(m_ext->myAddress) >= callParams->valueTransfer && m_ext->depth < 1024)
 	{
 		callParams->onOp = *m_onOp;
 		callParams->senderAddress = m_op == Instruction::DELEGATECALL ? m_ext->caller : m_ext->myAddress;
