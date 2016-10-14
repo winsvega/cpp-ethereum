@@ -69,6 +69,8 @@ struct ChainBranch
 			dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::FrontierTest;
 		if (chainname == "Homestead")
 			dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::HomesteadTest;
+		if (chainname == "EIP150")
+			dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
 		if (chainname == "TestFtoH5")
 			dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::Test;
 	}
@@ -778,6 +780,104 @@ BOOST_AUTO_TEST_SUITE_END()
 
 ///
 
+BOOST_AUTO_TEST_SUITE(BlockChainTestsEIP150)
+
+BOOST_AUTO_TEST_CASE(bcForkStressTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcForkStressTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcSuicideIssueEIP150)
+ {
+	//dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	//dev::test::executeTests("bcSuicideIssue", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+ }
+
+BOOST_AUTO_TEST_CASE(bcTotalDifficultyTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcTotalDifficultyTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcMultiChainTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcMultiChainTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcInvalidRLPTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	std::string fillersPath = dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150";
+	if (!dev::test::Options::get().fillTests)
+		dev::test::executeTests("bcInvalidRLPTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+	else
+	{
+		dev::test::TestOutputHelper::initTest();
+		dev::test::copyFile(fillersPath + "/bcInvalidRLPTest.json", dev::test::getTestPath() + "/BlockchainTests/EIP150/bcInvalidRLPTest.json");
+	}
+}
+
+BOOST_AUTO_TEST_CASE(bcRPC_API_TestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcRPC_API_Test", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcValidBlockTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcValidBlockTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcInvalidHeaderTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcInvalidHeaderTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcUncleHeaderValiditiyEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcUncleHeaderValiditiy", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcGasPricerTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcGasPricerTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcUncleTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcUncleTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcBlockGasLimitTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcBlockGasLimitTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcStateTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	dev::test::executeTests("bcStateTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_CASE(bcWalletTestEIP150)
+{
+	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
+	if (test::Options::get().wallet)
+		dev::test::executeTests("bcWalletTest", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+///
+
 BOOST_AUTO_TEST_SUITE(BlockChainTestsHomestead)
 
 BOOST_AUTO_TEST_CASE(bcForkStressTestHomestead)
@@ -788,8 +888,8 @@ BOOST_AUTO_TEST_CASE(bcForkStressTestHomestead)
 
 BOOST_AUTO_TEST_CASE(bcSuicideIssueHomestead)
  {
-	dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::HomesteadTest;
-	dev::test::executeTests("bcSuicideIssue", "/BlockchainTests/Homestead",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/Homestead", dev::test::doBlockchainTests);
+	//dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::HomesteadTest;
+	//dev::test::executeTests("bcSuicideIssue", "/BlockchainTests/Homestead",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/Homestead", dev::test::doBlockchainTests);
  }
 
 BOOST_AUTO_TEST_CASE(bcTotalDifficultyTestHomestead)
