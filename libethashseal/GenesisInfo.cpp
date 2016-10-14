@@ -30,7 +30,7 @@ R"ETHEREUM(
 	"sealEngine": "Ethash",
 	"params": {
 		"accountStartNonce": "0x00",
-		"frontierCompatibilityModeLimit": "0xffffffff",
+		"homsteadForkBlock": "0xffffffff",
 		"maximumExtraDataSize": "0x0400",
 		"tieBreakingGas": false,
 		"minGasLimit": "125000",
@@ -77,7 +77,7 @@ R"ETHEREUM(
 	"sealEngine": "Ethash",
 	"params": {
 		"accountStartNonce": "0x0100000",
-		"frontierCompatibilityModeLimit": "0x789b0",
+		"homsteadForkBlock": "0x789b0",
 		"maximumExtraDataSize": "0x20",
 		"tieBreakingGas": false,
 		"minGasLimit": "0x1388",
@@ -117,7 +117,7 @@ R"E(
 	"sealEngine": "Ethash",
 	"params": {
 		"accountStartNonce": "0x00",
-		"frontierCompatibilityModeLimit": "0xffffffffffffffff",
+		"homsteadForkBlock": "0xffffffffffffffff",
 		"daoHardforkBlock": "0xfffffffffffffff",
 		"EIP150ForkBlock": "0xfffffffffffffff",
 		"maximumExtraDataSize": "0x20",
@@ -158,7 +158,7 @@ R"E(
 	"sealEngine": "Ethash",
 	"params": {
 		"accountStartNonce": "0x00",
-		"frontierCompatibilityModeLimit": "0x05",
+		"homsteadForkBlock": "0x05",
 		"daoHardforkBlock": "0x08",
 		"EIP150ForkBlock": "0x0a",
 		"maximumExtraDataSize": "0x20",
@@ -239,7 +239,7 @@ R"E(
 	"sealEngine": "Ethash",
 	"params": {
 		"accountStartNonce": "0x00",
-		"frontierCompatibilityModeLimit": "0x118c30",
+		"homsteadForkBlock": "0x118c30",
 		"daoHardforkBlock": "0x1d4c00",
 		"EIP150ForkBlock": "0xfffffffffffffff",
 		"maximumExtraDataSize": "0x20",
