@@ -201,7 +201,7 @@ R"E(
 		"accountStartNonce": "0x00",
 		"maximumExtraDataSize": "0x20",
 		"daoHardforkBlock": "0x1d4c00",
-		"EIP150ForkBlock": "0x257da8",
+		"EIP150ForkBlock": "0x259518",
 		"minGasLimit": "0x1388",
 		"maxGasLimit": "7fffffffffffffff",
 		"tieBreakingGas": false,
