@@ -790,6 +790,7 @@ BOOST_AUTO_TEST_CASE(bcForkStressTestEIP150)
 
 BOOST_AUTO_TEST_CASE(bcSuicideIssueEIP150)
  {
+	//testeth currently could not run or either fill this test (OOM Exception)
 	//dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::EIP150Test;
 	//dev::test::executeTests("bcSuicideIssue", "/BlockchainTests/EIP150",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/EIP150", dev::test::doBlockchainTests);
  }
@@ -888,6 +889,7 @@ BOOST_AUTO_TEST_CASE(bcForkStressTestHomestead)
 
 BOOST_AUTO_TEST_CASE(bcSuicideIssueHomestead)
  {
+	//testeth currently could not run or either fill this test (OOM Exception)
 	//dev::test::TestBlockChain::s_sealEngineNetwork = eth::Network::HomesteadTest;
 	//dev::test::executeTests("bcSuicideIssue", "/BlockchainTests/Homestead",dev::test::getFolder(__FILE__) + "/BlockchainTestsFiller/Homestead", dev::test::doBlockchainTests);
  }

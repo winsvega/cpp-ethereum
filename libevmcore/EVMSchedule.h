@@ -65,7 +65,6 @@ struct EVMSchedule
 	unsigned txDataNonZeroGas = 68;
 	unsigned copyGas = 3;
 
-	//EIP150
 	unsigned extcodesizeGas = 20;
 	unsigned extcodecopyGas = 20;
 	unsigned balanceGas = 20;
