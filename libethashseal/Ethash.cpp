@@ -86,11 +86,10 @@ EVMSchedule const& Ethash::evmSchedule(EnvInfo const& _envInfo) const
 {
 	if (_envInfo.number() >= chainParams().u256Param("EIP150ForkBlock"))
 		return EIP150Schedule;
+	else if (_envInfo.number() >= chainParams().u256Param("homsteadForkBlock"))
+		return HomesteadSchedule;
 	else
-		if (_envInfo.number() >= chainParams().u256Param("homsteadForkBlock"))
-			return HomesteadSchedule;
-		else
-			return FrontierSchedule;
+		return FrontierSchedule;
 }
 
 void Ethash::verify(Strictness _s, BlockHeader const& _bi, BlockHeader const& _parent, bytesConstRef _block) const
