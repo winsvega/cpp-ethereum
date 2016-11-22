@@ -6,3 +6,7 @@
 	path = evmjit
 	url = https://github.com/ethereum/evmjit
 	branch = develop
+[submodule "libjson-rpc-cpp"]
+	path = libjson-rpc-cpp
+	url = https://github.com/cinemast/libjson-rpc-cpp
+	branch = master
