@@ -36,6 +36,7 @@ if [[ "$TESTS" == "On" ]]; then
     # Clone the end-to-end test repo, and point environment variable at it.
     cd ../..
     git clone https://github.com/ethereum/tests.git
+    git checkout eip158
     export ETHEREUM_TEST_PATH=$(pwd)/tests/
 
     # Run the tests for the Interpreter
